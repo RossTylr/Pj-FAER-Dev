@@ -63,22 +63,17 @@ if view_mode == "Engine Room (X-ray)":
 
     with col_timeline:
         st.subheader("Event Timeline")
-        # TODO: Plotly swimlane with yield markers (Y1-Y5)
-        # Each event annotated with source module
-        placeholder_events = [
-            ("0.0", "ARRIVAL", "CAS-001", "POI", "emitter.py"),
-            ("0.0", "TRIAGED", "CAS-001", "POI", "emitter.py"),
-            ("0.0", "route_decide", "CAS-001", "—", "routing.py"),
-            ("2.1", "Y5 travel", "CAS-001", "POI-R1", "engine.py"),
-            ("32.1", "ARRIVED", "CAS-001", "R1", "emitter.py"),
-            ("32.1", "Y1 resource", "CAS-001", "R1", "engine.py"),
-            ("35.4", "Y2 treat", "CAS-001", "R1", "engine.py"),
-            ("55.2", "TREATED", "CAS-001", "R1", "emitter.py"),
-        ]
-        for t, evt, cas, fac, mod in placeholder_events:
-            if focused_cas == "All" or focused_cas == cas:
-                prefix = "  " if "Y" not in evt else ">>"
-                st.text(f"{prefix} T={t:>6s}  {evt:<14s} {cas} {fac:<6s} [{mod}]")
+        events = st.session_state.get("events", [])
+        if events:
+            for e in events[-30:]:
+                t = e.get("time", 0.0)
+                etype = e.get("type", "?")
+                pid = e.get("patient_id", "") or ""
+                fac = e.get("facility", "") or ""
+                if focused_cas == "All" or focused_cas == pid:
+                    st.text(f"T={t:>7.1f}  {etype:<20s} {pid:<10s} {fac}")
+        else:
+            st.info("Run a simulation first to see live events.")
 
     with col_xray:
         st.subheader("Architecture X-Ray")
@@ -171,16 +166,34 @@ if view_mode == "Engine Room (X-ray)":
     st.subheader("Analytics Views")
     st.caption("Data source: AnalyticsEngine via EventBus — Pattern E boundary")
     a1, a2, a3 = st.columns(3)
-    with a1:
-        st.metric("Golden Hour (T1)", "28.3 min", delta="-4.2 min",
-                  help="Mean time to first treatment for T1 casualties")
-    with a2:
-        st.metric("R1 Peak Load", "4 / 4", delta="AT CAPACITY",
-                  delta_color="inverse",
-                  help="Peak concurrent occupancy at Role 1")
-    with a3:
-        st.metric("Mean P(survival)", "0.71", delta="+0.03",
-                  help="Running survivability estimate across all casualties")
+    analytics = st.session_state.get("analytics")
+    metrics = st.session_state.get("engine_metrics", {})
+    if analytics:
+        golden = analytics.get_view("golden_hour")
+        facility = analytics.get_view("facility_load")
+        with a1:
+            gh_mean = golden.get("mean_minutes", 0.0)
+            st.metric("Golden Hour Mean", f"{gh_mean:.1f} min",
+                      help="Mean time to disposition")
+        with a2:
+            max_peak = 0
+            peak_fac = "—"
+            for fid, data in facility.items():
+                if data["peak"] > max_peak:
+                    max_peak = data["peak"]
+                    peak_fac = fid
+            st.metric(f"Peak Load ({peak_fac})", f"{max_peak}",
+                      help="Highest peak occupancy across facilities")
+        with a3:
+            st.metric("Completed", metrics.get("completed", "—"),
+                      help="Total completed casualties")
+    else:
+        with a1:
+            st.metric("Golden Hour", "—")
+        with a2:
+            st.metric("Peak Load", "—")
+        with a3:
+            st.metric("Completed", "—")
 
 else:
     # Operations mode
@@ -194,12 +207,20 @@ else:
         st.info("Network status with current casualties and route status.")
 
     st.divider()
+    metrics = st.session_state.get("engine_metrics", {})
+    analytics = st.session_state.get("analytics")
+    events = st.session_state.get("events", [])
     a1, a2, a3, a4 = st.columns(4)
     with a1:
-        st.metric("Total Casualties", "20")
+        st.metric("Total Casualties", metrics.get("total_arrivals", "—"))
     with a2:
-        st.metric("Golden Hour Compliance", "85%")
+        if analytics:
+            gh = analytics.get_view("golden_hour")
+            st.metric("Golden Hour Compliance", f"{gh.get('pct_within_60', 0):.0%}")
+        else:
+            st.metric("Golden Hour Compliance", "—")
     with a3:
-        st.metric("Route Denials", "4")
+        denials = sum(1 for e in events if e.get("type") == "ROUTE_DENIED")
+        st.metric("Route Denials", denials if events else "—")
     with a4:
-        st.metric("Mean P(survival)", "0.71")
+        st.metric("Completed", metrics.get("completed", "—"))

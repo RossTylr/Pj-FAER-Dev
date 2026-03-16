@@ -4,6 +4,21 @@ Run N replications with different seeds, compute confidence intervals.
 Demonstrates EP-4 (batch/Monte Carlo) capability.
 """
 import streamlit as st
+import numpy as np
+import plotly.express as px
+import pandas as pd
+
+from faer_dev.config.builder import build_engine_from_dict
+from faer_dev.decisions.mode import SimulationToggles
+from faer_dev.analytics.engine import AnalyticsEngine
+from faer_dev.analytics.views import OutcomeView, GoldenHourView
+
+PHASE1_TOGGLES = SimulationToggles(
+    enable_extracted_routing=True,
+    enable_extracted_metrics=True,
+    enable_typed_emitter=True,
+    enable_extracted_pfc=True,
+)
 
 st.header("Monte Carlo Ensemble Analysis")
 
@@ -12,6 +27,31 @@ if "scenario_config" not in st.session_state:
     st.stop()
 
 config = st.session_state["scenario_config"]
+
+def _build_scenario_dict(cfg):
+    topo = cfg["topology"]
+    facilities = []
+    edges = []
+    for i, node in enumerate(topo):
+        facilities.append({
+            "id": node["id"], "name": node["id"],
+            "role": node["role"], "beds": node["capacity"],
+        })
+        if i < len(topo) - 1:
+            next_node = topo[i + 1]
+            edges.append({
+                "from": node["id"], "to": next_node["id"],
+                "travel_time_minutes": node["travel_time"], "transport": "ground",
+            })
+    return {
+        "operational_context": "COIN", "seed": cfg["seed"],
+        "facilities": facilities, "edges": edges,
+        "arrivals": {
+            "base_rate_per_hour": cfg["arrival_rate"],
+            "mascal_enabled": cfg.get("mascal_enabled", False),
+        },
+    }
+
 
 st.subheader("Ensemble Configuration")
 col1, col2 = st.columns(2)
@@ -24,51 +64,88 @@ with col2:
 if st.button("Run Ensemble", type="primary"):
     progress = st.progress(0, text="Starting ensemble...")
 
-    # TODO: Wire to actual engine ensemble loop:
-    #
-    # results = []
-    # for i in range(n_replications):
-    #     engine = FAEREngine(seed=base_seed + i, toggles=phase1_toggles)
-    #     analytics = AnalyticsEngine(engine.log)
-    #     analytics.register_view("survivability", SurvivabilityView())
-    #     engine.build_network(topology)
-    #     engine.generate_casualties(n)
-    #     engine.run(until=duration)
-    #     results.append(analytics.get_view("survivability"))
-    #     analytics.reset_all()  # crucial for memory management
-    #     progress.progress((i+1) / n_replications)
+    scenario_dict = _build_scenario_dict(config)
+    results = []
 
-    import time
     for i in range(n_replications):
-        time.sleep(0.01)
-        progress.progress((i + 1) / n_replications, text=f"Replication {i+1}/{n_replications}")
+        engine = build_engine_from_dict(
+            scenario_dict, toggles=PHASE1_TOGGLES, seed=base_seed + i,
+        )
+        analytics = AnalyticsEngine(engine.event_bus)
+        analytics.register_view("outcomes", OutcomeView())
+        analytics.register_view("golden_hour", GoldenHourView())
+
+        metrics = engine.run(
+            duration=float(config["sim_duration"]),
+            max_patients=None,
+        )
+
+        outcome_snap = analytics.get_view("outcomes")
+        golden_snap = analytics.get_view("golden_hour")
+
+        results.append({
+            "seed": base_seed + i,
+            "total_arrivals": metrics["total_arrivals"],
+            "completed": metrics["completed"],
+            "dispositions": outcome_snap["total_dispositions"],
+            "golden_hour_mean": golden_snap["mean_minutes"],
+            "golden_hour_pct60": golden_snap["pct_within_60"],
+        })
+
+        progress.progress((i + 1) / n_replications,
+                          text=f"Replication {i+1}/{n_replications}")
 
     st.success(f"Ensemble complete: {n_replications} replications.")
 
-    # --- Results Layout ---
+    df = pd.DataFrame(results)
+
+    # --- Summary Metrics ---
     st.subheader("Ensemble Results")
+    alpha = 1 - ci_level
+    completions = df["completed"].values
+    mean_completed = np.mean(completions)
+    ci_lo = np.percentile(completions, 100 * alpha / 2)
+    ci_hi = np.percentile(completions, 100 * (1 - alpha / 2))
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Mean Survivability", "—", help=f"{ci_level*100:.0f}% CI: [—, —]")
+        st.metric("Mean Completed", f"{mean_completed:.1f}",
+                  help=f"{ci_level*100:.0f}% CI: [{ci_lo:.1f}, {ci_hi:.1f}]")
     with col2:
-        st.metric("Worst-Case Run", "Seed —", help="Lowest mean P(survival)")
+        worst = df.loc[df["completed"].idxmin()]
+        st.metric("Worst-Case Run", f"Seed {worst['seed']:.0f}",
+                  help=f"Completed: {worst['completed']}")
     with col3:
-        st.metric("Best-Case Run", "Seed —", help="Highest mean P(survival)")
+        best = df.loc[df["completed"].idxmax()]
+        st.metric("Best-Case Run", f"Seed {best['seed']:.0f}",
+                  help=f"Completed: {best['completed']}")
 
     st.divider()
 
-    st.subheader("Survivability Distribution Across Replications")
-    st.info("Histogram of mean P(survival) across N replications with CI bands")
+    # --- Distribution Chart ---
+    st.subheader("Completed Casualties Distribution")
+    fig = px.histogram(df, x="completed", nbins=20,
+                       labels={"completed": "Completed Casualties"},
+                       color_discrete_sequence=["#3b82f6"])
+    fig.add_vline(x=mean_completed, line_dash="dash", line_color="red",
+                  annotation_text=f"Mean: {mean_completed:.1f}")
+    fig.update_layout(height=300)
+    st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Sensitivity: R1 Capacity Impact")
-    st.info("Line chart: mean survivability vs R1 capacity (2, 4, 8, 12)")
+    # --- Golden Hour Distribution ---
+    st.subheader("Golden Hour Compliance Across Replications")
+    fig2 = px.histogram(df, x="golden_hour_pct60", nbins=20,
+                        labels={"golden_hour_pct60": "% Within 60 min"},
+                        color_discrete_sequence=["#10b981"])
+    fig2.update_layout(height=300)
+    st.plotly_chart(fig2, use_container_width=True)
 
-    st.subheader("Sensitivity: Contested Route Denial Rate")
-    st.info("Line chart: mean survivability vs denial probability (0%, 10%, 20%, 30%, 50%)")
+    # Store for other pages
+    st.session_state["monte_carlo_results"] = df
 
 st.divider()
 st.caption("""
-**Memory management:** AnalyticsEngine.reset_all() called between replications.
-EventStore flushed after view computation. Peak memory bounded to single-run footprint.
+**Memory management:** Fresh engine per replication. AnalyticsEngine subscribes
+to EventBus, views computed during run, then engine is garbage collected.
+Peak memory bounded to single-run footprint.
 """)
