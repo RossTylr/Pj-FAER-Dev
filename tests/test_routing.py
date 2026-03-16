@@ -17,7 +17,6 @@ from faer_dev.routing import get_next_destination, triage_decisions
 from faer_dev.simulation.engine import (
     PolyhybridEngine,
     _get_next_destination,
-    _triage_decisions,
 )
 
 
@@ -68,14 +67,16 @@ def _run_engine(toggles: SimulationToggles, seed: int = 42, max_patients: int = 
 # ===========================================================================
 
 class TestTriageDecisions:
-    """Test extracted triage_decisions() matches legacy _triage_decisions()."""
+    """Test extracted triage_decisions() (K-3: legacy deleted, this is the only path)."""
 
     @pytest.mark.parametrize("triage", list(TriageCategory))
-    def test_matches_legacy(self, triage):
+    def test_returns_valid_decisions(self, triage):
         patient = _make_patient(triage)
-        legacy = _triage_decisions(patient)
-        extracted = triage_decisions(patient)
-        assert legacy == extracted, f"Mismatch for {triage.name}"
+        decisions = triage_decisions(patient)
+        assert "recommended_triage" in decisions
+        assert "bypass_role1" in decisions
+        assert "requires_dcs" in decisions
+        assert "priority" in decisions
 
     def test_t1_surgical_bypass_and_dcs(self):
         d = triage_decisions(_make_patient(TriageCategory.T1_SURGICAL))

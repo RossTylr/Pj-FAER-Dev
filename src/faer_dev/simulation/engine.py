@@ -76,34 +76,9 @@ DEFAULT_TREATMENT_TIMES: Dict[Role, Dict[str, int]] = {
 ROLE_ORDER = [Role.POI, Role.R1, Role.R2, Role.R3, Role.R4]
 
 
-def _triage_decisions(patient: Casualty) -> Dict[str, Any]:
-    """Evaluate triage and return clinical decisions.
 
-    Simplified decision logic extracted from notebook TriageDecisionMaker.
-    Will be replaced by py-trees behavior tree in Phase 3.
-    """
-    decisions: Dict[str, Any] = {
-        "recommended_triage": patient.triage,
-        "bypass_role1": False,
-        "requires_dcs": False,
-        "priority": 5,
-    }
-
-    if patient.triage == TriageCategory.T1_SURGICAL:
-        decisions["priority"] = 1
-        decisions["bypass_role1"] = True
-        decisions["requires_dcs"] = True
-    elif patient.triage == TriageCategory.T1_MEDICAL:
-        decisions["priority"] = 1
-        decisions["bypass_role1"] = True
-    elif patient.triage == TriageCategory.T2:
-        decisions["priority"] = 2
-    elif patient.triage == TriageCategory.T3:
-        decisions["priority"] = 3
-    elif patient.triage == TriageCategory.T4:
-        decisions["priority"] = 5
-
-    return decisions
+# K-3 CLOSED: Legacy _triage_decisions() deleted.
+# All paths now use routing.triage_decisions (EX-1 proven identical).
 
 
 def _get_next_destination(
@@ -248,6 +223,13 @@ class PolyhybridEngine:
         self.event_store = EventStore()
         self.event_bus.subscribe_all(self.event_store.append)
         self._run_logger = RunLogger()
+
+        # EX-3: TypedEmitter (toggle-gated)
+        if self.toggles.enable_typed_emitter:
+            from faer_dev.emitter import TypedEmitter
+            self._typed_emitter = TypedEmitter(self.events, self.event_bus)
+        else:
+            self._typed_emitter = None
 
         # Persist config for run logging / state saving
         self.config = config
@@ -510,9 +492,15 @@ class PolyhybridEngine:
     ) -> None:
         """Emit event to both legacy dict list and typed EventBus.
 
-        Legacy path: IDENTICAL dict format to Phase 3 — same keys, same values.
-        Bus path: typed SimEvent routed through EventBus to EventStore.
+        Toggle-gated (EX-3): when enable_typed_emitter is True, delegates
+        to TypedEmitter. When False, runs legacy inline code.
         """
+        if self._typed_emitter is not None:
+            self._typed_emitter.emit(
+                event_type, patient, facility, details, self.env.now,
+            )
+            return
+
         triage_val = (
             patient.triage.name
             if isinstance(patient.triage, Enum)
@@ -553,7 +541,15 @@ class PolyhybridEngine:
         time: float,
         details: Dict[str, Any],
     ) -> None:
-        """Emit system event (no patient) to legacy list and typed EventBus."""
+        """Emit system event (no patient) to legacy list and typed EventBus.
+
+        Toggle-gated (EX-3): when enable_typed_emitter is True, delegates
+        to TypedEmitter.emit_raw(). When False, runs legacy inline code.
+        """
+        if self._typed_emitter is not None:
+            self._typed_emitter.emit_raw(event_type, time, details)
+            return
+
         # === LEGACY PATH (always) ===
         self.events.append({
             "time": time,
@@ -640,11 +636,8 @@ class PolyhybridEngine:
         current_id = start_facility_id
         self.patients[patient.id] = patient
 
-        # Initial triage decisions (toggle-gated extraction)
-        if self.toggles.enable_extracted_routing:
-            decisions = _extracted_triage_decisions(patient)
-        else:
-            decisions = _triage_decisions(patient)
+        # Triage decisions (K-3 closed: always uses extracted routing module)
+        decisions = _extracted_triage_decisions(patient)
         patient.bypass_role1 = decisions["bypass_role1"]
         patient.requires_dcs = decisions["requires_dcs"]
 
@@ -1284,7 +1277,28 @@ class PolyhybridEngine:
         return self.get_metrics()
 
     def get_metrics(self) -> Dict[str, Any]:
-        """Collect and return simulation metrics."""
+        """Collect and return simulation metrics.
+
+        Toggle-gated: when enable_extracted_metrics is True, delegates to
+        metrics.compute_metrics() (EX-2). When False, runs legacy inline code.
+        """
+        if self.toggles.enable_extracted_metrics:
+            from faer_dev.metrics import compute_metrics
+
+            return compute_metrics(
+                events=self.events,
+                completed_patients=self.completed_patients,
+                active_patients=self.patients,
+                queues=self.queues,
+                transport_pool=self.transport_pool,
+                mascal_detector=self.mascal_detector,
+                mascal_events=self._mascal_events,
+            )
+
+        return self._legacy_get_metrics()
+
+    def _legacy_get_metrics(self) -> Dict[str, Any]:
+        """Legacy inline metrics computation (preserved for toggle-off path)."""
         total_arrivals = sum(1 for e in self.events if e["type"] == "ARRIVAL")
 
         metrics: Dict[str, Any] = {

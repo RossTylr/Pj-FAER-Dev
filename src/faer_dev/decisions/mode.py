@@ -51,3 +51,6 @@ class SimulationToggles:
     enable_ccp: bool = False
     # Extraction toggles — when ON, call extracted module; when OFF, legacy inline
     enable_extracted_routing: bool = False
+    enable_extracted_metrics: bool = False
+    enable_typed_emitter: bool = False
+    enable_extracted_pfc: bool = False
