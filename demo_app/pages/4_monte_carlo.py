@@ -3,6 +3,10 @@
 Run N replications with different seeds, compute confidence intervals.
 Demonstrates EP-4 (batch/Monte Carlo) capability.
 """
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+import _path_setup  # noqa: F401, E402
+
 import streamlit as st
 import numpy as np
 import plotly.express as px

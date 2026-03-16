@@ -3,6 +3,10 @@
 Reads materialised views from AnalyticsEngine (Pattern E).
 Never touches engine state directly — all data via get_view().
 """
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+import _path_setup  # noqa: F401, E402
+
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go

@@ -7,6 +7,10 @@ and where the yield points pause the simulation clock.
 Build AFTER Phase 1 NB39 gate passes.
 See: docs/ENGINE_ROOM_IDEATION.md for full design specification.
 """
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+import _path_setup  # noqa: F401, E402
+
 import streamlit as st
 
 # --- Sidebar Controls ---

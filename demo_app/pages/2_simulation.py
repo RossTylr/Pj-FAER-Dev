@@ -3,6 +3,10 @@
 Executes the FAER engine with the configured scenario.
 Displays real-time event stream and progress.
 """
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+import _path_setup  # noqa: F401, E402
+
 import streamlit as st
 
 from faer_dev.config.builder import build_engine_from_dict
