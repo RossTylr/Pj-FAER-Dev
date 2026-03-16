@@ -18,10 +18,10 @@ for i in range(num_nodes):
     with st.expander(f"Facility {i+1}", expanded=(i < 2)):
         col1, col2, col3 = st.columns(3)
         with col1:
-            roles = ["POI", "CCP", "R1", "R2", "R3", "R4"]
+            roles = ["POI", "R1", "R2", "R3", "R4"]
             role = st.selectbox(f"Role", roles, index=min(i, len(roles)-1), key=f"role_{i}")
         with col2:
-            capacity = st.number_input(f"Bed capacity", 1, 100, [50, 2, 4, 8, 16, 32][min(i, 5)], key=f"cap_{i}")
+            capacity = st.number_input(f"Bed capacity", 1, 100, [50, 4, 8, 16, 32][min(i, 4)], key=f"cap_{i}")
         with col3:
             fac_id = st.text_input(f"ID", f"{role}-{i+1}", key=f"id_{i}")
 
