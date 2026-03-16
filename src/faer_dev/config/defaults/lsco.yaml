@@ -1,0 +1,121 @@
+# Large-Scale Combat Operations (LSCO) Scenario Configuration
+# High-intensity conventional warfare
+
+name: lsco_offensive
+description: High-intensity offensive operations with sustained casualty flow
+
+operational_context: LSCO
+
+arrivals:
+  base_rate_per_hour: 8.0
+  triage_distribution:
+    T1_SURGICAL: 0.15
+    T1_MEDICAL: 0.15
+    T2: 0.30
+    T3: 0.30
+    T4: 0.10
+  enable_mascal: true
+  mascal_rate_per_hour: 0.5  # MASCAL event every 2 hours
+  mascal_cluster_mean: 20
+  mascal_cluster_spread_minutes: 20
+
+facilities:
+  - id: POI-FRONT
+    name: Forward Line
+    role: POI
+    beds: 0
+    coordinates: [0.0, 0.0]
+
+  - id: R1-ALPHA
+    name: BAS Alpha
+    role: R1
+    beds: 8
+    coordinates: [5.0, 2.0]
+
+  - id: R1-BRAVO
+    name: BAS Bravo
+    role: R1
+    beds: 8
+    coordinates: [5.0, -2.0]
+
+  - id: R2-FORWARD
+    name: FST Forward
+    role: R2
+    beds: 16
+    or_tables: 4
+    has_surgery: true
+    has_blood: true
+    coordinates: [20.0, 0.0]
+
+  - id: R2-RESERVE
+    name: FST Reserve
+    role: R2
+    beds: 12
+    or_tables: 2
+    has_surgery: true
+    has_blood: true
+    coordinates: [25.0, 5.0]
+
+  - id: R3-MAIN
+    name: Combat Support Hospital
+    role: R3
+    beds: 100
+    or_tables: 8
+    icu_beds: 20
+    has_surgery: true
+    has_blood: true
+    has_imaging: true
+    coordinates: [80.0, 0.0]
+
+edges:
+  - from: POI-FRONT
+    to: R1-ALPHA
+    travel_time_minutes: 15
+    transport: GROUND
+    threat_level: 0.6
+
+  - from: POI-FRONT
+    to: R1-BRAVO
+    travel_time_minutes: 15
+    transport: GROUND
+    threat_level: 0.6
+
+  - from: POI-FRONT
+    to: R2-FORWARD
+    travel_time_minutes: 30
+    transport: ROTARY
+    threat_level: 0.5
+
+  - from: R1-ALPHA
+    to: R2-FORWARD
+    travel_time_minutes: 25
+    transport: GROUND
+    threat_level: 0.4
+
+  - from: R1-BRAVO
+    to: R2-FORWARD
+    travel_time_minutes: 25
+    transport: GROUND
+    threat_level: 0.4
+
+  - from: R1-ALPHA
+    to: R2-RESERVE
+    travel_time_minutes: 35
+    transport: GROUND
+    threat_level: 0.3
+
+  - from: R2-FORWARD
+    to: R3-MAIN
+    travel_time_minutes: 45
+    transport: ROTARY
+    threat_level: 0.2
+
+  - from: R2-RESERVE
+    to: R3-MAIN
+    travel_time_minutes: 40
+    transport: ROTARY
+    threat_level: 0.2
+
+duration_hours: 48
+warmup_hours: 2
+seed: 42

@@ -1,6 +1,6 @@
 # Pj-FAER-Dev
 
-**Field Ambulance Emergency Response — Development Branch**
+**Forecast Accident and Emergency Resources — Development Branch**
 
 Poly-hybrid simulation engine refactoring: SimPy DES + BehaviorTrees + NetworkX.
 Implements the "Tidy, Decouple, Then Plug" architecture from a multi-LLM Design Space Exploration.

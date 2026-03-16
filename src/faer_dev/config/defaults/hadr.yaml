@@ -1,0 +1,82 @@
+# Humanitarian Assistance / Disaster Relief (HADR) Scenario
+# Mass casualty civilian emergency
+
+name: hadr_earthquake
+description: Earthquake response with civilian mass casualties
+
+operational_context: HADR
+
+arrivals:
+  base_rate_per_hour: 15.0
+  triage_distribution:
+    T1_SURGICAL: 0.10
+    T1_MEDICAL: 0.15
+    T2: 0.35
+    T3: 0.35
+    T4: 0.05
+  enable_mascal: true
+  mascal_rate_per_hour: 2.0  # Building collapses, aftershocks
+  mascal_cluster_mean: 30
+  mascal_cluster_spread_minutes: 30
+
+facilities:
+  - id: POI-CITY
+    name: Affected Area
+    role: POI
+    beds: 0
+    coordinates: [0.0, 0.0]
+
+  - id: R1-TRIAGE
+    name: Field Triage Station
+    role: R1
+    beds: 20
+    coordinates: [2.0, 0.0]
+
+  - id: R2-FIELD
+    name: Field Hospital
+    role: R2
+    beds: 40
+    or_tables: 4
+    has_surgery: true
+    has_blood: true
+    coordinates: [10.0, 0.0]
+
+  - id: R3-REGIONAL
+    name: Regional Hospital
+    role: R3
+    beds: 200
+    or_tables: 10
+    icu_beds: 30
+    has_surgery: true
+    has_blood: true
+    has_imaging: true
+    coordinates: [50.0, 0.0]
+
+edges:
+  - from: POI-CITY
+    to: R1-TRIAGE
+    travel_time_minutes: 10
+    transport: GROUND
+    threat_level: 0.0
+
+  - from: R1-TRIAGE
+    to: R2-FIELD
+    travel_time_minutes: 15
+    transport: GROUND
+    threat_level: 0.0
+
+  - from: R1-TRIAGE
+    to: R3-REGIONAL
+    travel_time_minutes: 45
+    transport: ROTARY
+    threat_level: 0.0
+
+  - from: R2-FIELD
+    to: R3-REGIONAL
+    travel_time_minutes: 30
+    transport: GROUND
+    threat_level: 0.0
+
+duration_hours: 96
+warmup_hours: 0  # No warmup - immediate response
+seed: 42

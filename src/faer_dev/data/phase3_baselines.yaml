@@ -1,0 +1,72 @@
+COIN:
+  chi2_p_value: 0.8435921425358693
+  ks_p_value: 1.4310585647911027
+  mean_completed: 58.4
+  n_replications: 5
+  overall_pass: true
+  reference:
+    T1_MEDICAL: 0.1125
+    T1_SURGICAL: 0.0625
+    T2: 0.2625
+    T3: 0.4625
+    T4: 0.1
+  triage_distribution:
+    T1_MEDICAL: 0.1099554234769688
+    T1_SURGICAL: 0.06686478454680535
+    T2: 0.2763744427934621
+    T3: 0.4427934621099554
+    T4: 0.10401188707280833
+HADR:
+  chi2_p_value: 0.656815112187983
+  ks_p_value: 1.420469952772313
+  mean_completed: 87.2
+  n_replications: 5
+  overall_pass: true
+  reference:
+    T1_MEDICAL: 0.0825
+    T1_SURGICAL: 0.0425
+    T2: 0.225
+    T3: 0.55
+    T4: 0.1
+  triage_distribution:
+    T1_MEDICAL: 0.08131241084165478
+    T1_SURGICAL: 0.047075606276747506
+    T2: 0.21540656205420827
+    T3: 0.5406562054208274
+    T4: 0.11554921540656206
+LSCO:
+  chi2_p_value: 0.18311125022211006
+  ks_p_value: 1.0627413835795458
+  mean_completed: 70.8
+  n_replications: 5
+  overall_pass: true
+  reference:
+    T1_MEDICAL: 0.1125
+    T1_SURGICAL: 0.175
+    T2: 0.3
+    T3: 0.3125
+    T4: 0.1
+  triage_distribution:
+    T1_MEDICAL: 0.1044776119402985
+    T1_SURGICAL: 0.1625207296849088
+    T2: 0.34328358208955223
+    T3: 0.28524046434494194
+    T4: 0.1044776119402985
+SPECOPS:
+  chi2_p_value: 0.054038992254712204
+  ks_p_value: 0.17783683715072438
+  mean_completed: 67.4
+  n_replications: 5
+  overall_pass: true
+  reference:
+    T1_MEDICAL: 0.1125
+    T1_SURGICAL: 0.225
+    T2: 0.3
+    T3: 0.2625
+    T4: 0.1
+  triage_distribution:
+    T1_MEDICAL: 0.13994169096209913
+    T1_SURGICAL: 0.23323615160349853
+    T2: 0.30612244897959184
+    T3: 0.22157434402332363
+    T4: 0.09912536443148688

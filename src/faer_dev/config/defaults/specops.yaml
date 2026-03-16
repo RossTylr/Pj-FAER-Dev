@@ -1,0 +1,82 @@
+# Special Operations (SPECOPS) Scenario Configuration
+# Small teams, remote locations, limited resources
+
+name: specops_raid
+description: Special operations raid with limited medical support
+
+operational_context: SPECOPS
+
+arrivals:
+  base_rate_per_hour: 0.5
+  triage_distribution:
+    T1_SURGICAL: 0.20
+    T1_MEDICAL: 0.15
+    T2: 0.30
+    T3: 0.30
+    T4: 0.05
+  enable_mascal: true
+  mascal_rate_per_hour: 0.1  # Rare but severe
+  mascal_cluster_mean: 5
+  mascal_cluster_spread_minutes: 5
+
+facilities:
+  - id: POI-TARGET
+    name: Target Area
+    role: POI
+    beds: 0
+    coordinates: [0.0, 0.0]
+
+  - id: R1-TEAM
+    name: Team Medic
+    role: R1
+    beds: 2
+    coordinates: [0.5, 0.0]
+
+  - id: R2-FST
+    name: Forward Surgical Team
+    role: R2
+    beds: 6
+    or_tables: 1
+    has_surgery: true
+    has_blood: true
+    coordinates: [50.0, 0.0]
+
+  - id: R3-BASE
+    name: Main Operating Base Hospital
+    role: R3
+    beds: 30
+    or_tables: 3
+    icu_beds: 6
+    has_surgery: true
+    has_blood: true
+    has_imaging: true
+    coordinates: [200.0, 0.0]
+
+edges:
+  - from: POI-TARGET
+    to: R1-TEAM
+    travel_time_minutes: 2
+    transport: GROUND
+    threat_level: 0.8
+
+  - from: R1-TEAM
+    to: R2-FST
+    travel_time_minutes: 45
+    transport: ROTARY
+    threat_level: 0.4
+
+  - from: POI-TARGET
+    to: R2-FST
+    travel_time_minutes: 50
+    transport: ROTARY
+    threat_level: 0.5
+
+  - from: R2-FST
+    to: R3-BASE
+    travel_time_minutes: 90
+    transport: FIXED_WING
+    threat_level: 0.1
+
+duration_hours: 12
+warmup_hours: 0
+seed: 42

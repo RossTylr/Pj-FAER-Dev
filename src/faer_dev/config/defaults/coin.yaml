@@ -1,0 +1,82 @@
+# Counter-Insurgency (COIN) Scenario Configuration
+# Low-intensity operations with IED threat
+
+name: coin_standard
+description: Standard COIN patrol operations with moderate casualty rate
+
+operational_context: COIN
+
+arrivals:
+  base_rate_per_hour: 1.5
+  triage_distribution:
+    T1_SURGICAL: 0.08
+    T1_MEDICAL: 0.07
+    T2: 0.25
+    T3: 0.50
+    T4: 0.10
+  enable_mascal: true
+  mascal_rate_per_hour: 0.05  # ~1 IED event per 20 hours
+  mascal_cluster_mean: 8
+  mascal_cluster_spread_minutes: 10
+
+facilities:
+  - id: POI-1
+    name: Patrol Base Alpha
+    role: POI
+    beds: 0
+    coordinates: [0.0, 0.0]
+
+  - id: R1-ALPHA
+    name: BAS Alpha
+    role: R1
+    beds: 4
+    coordinates: [10.0, 0.0]
+
+  - id: R2-MAIN
+    name: FST Main
+    role: R2
+    beds: 8
+    or_tables: 2
+    has_surgery: true
+    has_blood: true
+    coordinates: [30.0, 0.0]
+
+  - id: R3-THEATRE
+    name: Combat Support Hospital
+    role: R3
+    beds: 50
+    or_tables: 4
+    icu_beds: 8
+    has_surgery: true
+    has_blood: true
+    has_imaging: true
+    coordinates: [100.0, 0.0]
+
+edges:
+  - from: POI-1
+    to: R1-ALPHA
+    travel_time_minutes: 20
+    transport: GROUND
+    threat_level: 0.3
+
+  - from: POI-1
+    to: R2-MAIN
+    travel_time_minutes: 45
+    transport: ROTARY
+    threat_level: 0.2
+
+  - from: R1-ALPHA
+    to: R2-MAIN
+    travel_time_minutes: 35
+    transport: GROUND
+    threat_level: 0.2
+
+  - from: R2-MAIN
+    to: R3-THEATRE
+    travel_time_minutes: 60
+    transport: ROTARY
+    threat_level: 0.1
+
+duration_hours: 72
+warmup_hours: 4
+seed: 42
