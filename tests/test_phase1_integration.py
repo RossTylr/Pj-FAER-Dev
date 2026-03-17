@@ -28,7 +28,8 @@ ALL_ON = SimulationToggles(
     enable_extracted_routing=True,
     enable_extracted_metrics=True,
     enable_typed_emitter=True,
-    enable_extracted_pfc=True,
+    # enable_extracted_pfc: module exists but engine.py never checks it.
+    # Wiring deferred to Phase 3 hold loop delegation (EX-6).
 )
 
 

@@ -21,7 +21,7 @@ PHASE1_TOGGLES = SimulationToggles(
     enable_extracted_routing=True,
     enable_extracted_metrics=True,
     enable_typed_emitter=True,
-    enable_extracted_pfc=True,
+    # enable_extracted_pfc: not wired in engine.py — deferred to Phase 3
 )
 
 st.header("Monte Carlo Ensemble Analysis")

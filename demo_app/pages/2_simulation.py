@@ -8,18 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import _path_setup  # noqa: F401, E402
 
 import streamlit as st
-
-from faer_dev.config.builder import build_engine_from_dict
-from faer_dev.decisions.mode import SimulationToggles
-from faer_dev.analytics.engine import AnalyticsEngine
-from faer_dev.analytics.views import GoldenHourView, FacilityLoadView, OutcomeView
-
-PHASE1_TOGGLES = SimulationToggles(
-    enable_extracted_routing=True,
-    enable_extracted_metrics=True,
-    enable_typed_emitter=True,
-    enable_extracted_pfc=True,
-)
+from _engine_runner import run_engine
 
 
 def _build_scenario_dict(config):
@@ -72,30 +61,15 @@ if st.button("Run Simulation", type="primary"):
     progress = st.progress(0, text="Initialising engine...")
 
     scenario_dict = _build_scenario_dict(config)
-    engine = build_engine_from_dict(
-        scenario_dict, toggles=PHASE1_TOGGLES, seed=config["seed"],
-    )
-
-    progress.progress(10, text="Wiring analytics...")
-
-    analytics = AnalyticsEngine(engine.event_bus)
-    analytics.register_view("outcomes", OutcomeView())
-    analytics.register_view("facility_load", FacilityLoadView())
-    analytics.register_view("golden_hour", GoldenHourView())
-
     progress.progress(20, text="Running simulation...")
 
-    metrics = engine.run(
+    metrics = run_engine(
+        scenario_dict,
+        seed=config["seed"],
         duration=float(config["sim_duration"]),
-        max_patients=None,
     )
 
     progress.progress(100, text="Complete")
-
-    st.session_state["engine_metrics"] = metrics
-    st.session_state["analytics"] = analytics
-    st.session_state["events"] = engine.events
-    st.session_state["scenario_dict"] = scenario_dict
 
     st.success(
         f"Simulation complete: {metrics['total_arrivals']} arrivals, "
@@ -105,7 +79,7 @@ if st.button("Run Simulation", type="primary"):
 
     # Event stream preview
     st.subheader("Event Stream (last 20)")
-    events = engine.events
+    events = st.session_state.get("events", [])
     if events:
         lines = []
         for e in events[-20:]:

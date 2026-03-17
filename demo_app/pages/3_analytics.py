@@ -50,9 +50,12 @@ col_left, col_right = st.columns(2)
 
 with col_left:
     st.subheader("Triage Distribution")
-    triage_events = [e for e in events if e.get("type") == "TRIAGE"]
-    if triage_events:
-        triage_counts = Counter(e.get("details", {}).get("category", "?") for e in triage_events)
+    # Read triage from ARRIVAL events — every arrival carries a triage field.
+    # The engine only emits "TRIAGE" type on re-triage during holds, so using
+    # ARRIVAL gives the intake distribution which is what this chart shows.
+    arrival_events = [e for e in events if e.get("type") == "ARRIVAL" and e.get("triage")]
+    if arrival_events:
+        triage_counts = Counter(e["triage"] for e in arrival_events)
         df_triage = pd.DataFrame(
             {"Triage": list(triage_counts.keys()), "Count": list(triage_counts.values())}
         )
@@ -61,7 +64,7 @@ with col_left:
         fig.update_layout(showlegend=False, height=300)
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("No triage events recorded.")
+        st.info("No arrival events recorded.")
 
 with col_right:
     st.subheader("Outcome Distribution")
