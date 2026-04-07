@@ -54,3 +54,5 @@ class SimulationToggles:
     enable_extracted_metrics: bool = False
     enable_typed_emitter: bool = False
     enable_extracted_pfc: bool = False
+    # Phase 1.5: graph-based Dijkstra routing (replaces role-walk first-match)
+    enable_graph_routing: bool = False

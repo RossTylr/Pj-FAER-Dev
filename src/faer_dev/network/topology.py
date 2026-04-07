@@ -80,9 +80,13 @@ class TreatmentNetwork:
             ) from exc
 
     def get_travel_time(self, from_id: str, to_id: str) -> float:
-        """Get travel time between adjacent facilities."""
+        """Get base travel time between adjacent facilities.
+
+        Returns base_time (not congestion-adjusted weight) so that actual
+        transit duration is unaffected by dynamic routing weights.
+        """
         if self.graph.has_edge(from_id, to_id):
-            return self.graph[from_id][to_id]["weight"]
+            return self.graph[from_id][to_id]["base_time"]
         return float("inf")
 
     def get_edge(self, from_id: str, to_id: str) -> dict:

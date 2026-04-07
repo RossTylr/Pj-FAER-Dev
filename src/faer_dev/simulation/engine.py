@@ -602,6 +602,20 @@ class PolyhybridEngine:
             mascal.duration,
         )
 
+    def _update_facility_congestion(self, facility_id: str) -> None:
+        """Recompute and push congestion factor for a facility's inbound edges.
+
+        Factor = current_occupancy / bed_capacity (0.0=empty, >1.0=over).
+        Only active when enable_graph_routing is ON.
+        """
+        if not self.toggles.enable_graph_routing:
+            return
+        queue = self.queues.get(facility_id)
+        if queue is None or queue.capacity == 0:
+            return
+        factor = queue.count / queue.capacity
+        self.network.update_congestion(facility_id, factor)
+
     def _finalize_patient(
         self,
         patient: Casualty,
@@ -626,6 +640,7 @@ class PolyhybridEngine:
 
         patient.metadata["final_outcome"] = str(resolved_outcome)
         self._log_event("DISPOSITION", patient, facility_id, details)
+        self._update_facility_congestion(facility_id)
         self.completed_patients.append(patient)
         self.patients.pop(patient.id, None)
 
@@ -664,7 +679,8 @@ class PolyhybridEngine:
             # Determine next destination (toggle-gated extraction)
             if self.toggles.enable_extracted_routing:
                 next_id = _extracted_get_next_destination(
-                    patient, current_facility, self.network, decisions
+                    patient, current_facility, self.network, decisions,
+                    use_graph_routing=self.toggles.enable_graph_routing,
                 )
             else:
                 next_id = _get_next_destination(
@@ -939,6 +955,7 @@ class PolyhybridEngine:
             patient.current_facility = current_id
             patient.facilities_visited.append(current_id)
             self._log_event("FACILITY_ARRIVAL", patient, current_id)
+            self._update_facility_congestion(current_id)
 
             # Golden Hour tracking: record first R2 arrival
             arrived_facility = self.network.facilities[current_id]
