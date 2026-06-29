@@ -18,6 +18,18 @@ Phase 2 starts when ONE of these is true:
 
 If NONE are true, Phase 2 waits. The engine works fine at Phase 1 state.
 
+## Yield-point delegation status
+
+`yield from` delegation already lives in the engine layer: `engine.py` delegates treatment to
+the `_treat_in_department` / `_treat_in_queue` sub-generators (the EX-5 / NB41 work), all within
+`src/faer_dev/simulation/`. There is **no "Phase 3 only" gate** — delegation is governed by the
+standing law in CLAUDE.md Rule 1 (yields confined to the engine layer; `yield from` must release
+acquired SimPy resources on exception, per `notebooks/phase2/NB44_yield_from_safety.ipynb`), not
+by a phase schedule.
+
+> Reconciled (rev 4): an earlier draft asserted "delegation switches on in Phase 3", which the
+> code contradicts (delegation is already present). That false schedule has been removed.
+
 ## Phase 2 Extractions
 
 | Step | Notebook | Target | Risk |
