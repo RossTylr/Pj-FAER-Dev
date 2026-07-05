@@ -19,6 +19,8 @@
 **Result:** TRIPWIRE FIRED — 21 violations unchanged pre/post fix. Verified live: the flag recomputes correctly and a fresh routing call from the hold location selects the surgical facility, but the hold destination is committed at engine.py:680-688 before the hold gate and never re-evaluated (engine.py:720-848). **Gate ruling (b)+(c):** recompute lands as flag-truth fix (commit `bddd05e`); gap pinned by characterisation `test_promotion_does_not_reroute_committed_hold` (inverts at Step 3); re-route decision routed to Step 3 as the re-plan-on-Clock-1 family alongside T-5-7's spatial twin; EX-6 possible vehicle, not plan of record.
 **Artifacts:** `tests/test_capability_retriage.py` · `docs/MVP/BUILD_S1.md` §4 OUTCOME block · gate ruling minutes GM-1–5 (chat, 2026-07-05)
 
+**Addendum (2026-07-05, AMEND-1/2 session):** AC-1.4 (MVP_ACCEPTANCE.md:101) carries the same byte-identical raw-log defect as pre-amendment AC-5.3; deferred to Step-3 AC authoring — a mechanical swap may be insufficient since multi-POI determinism language may need per-POI sub-RNG caveats.
+
 ---
 
 *Subsequent entries added as NB34-39 are completed.*

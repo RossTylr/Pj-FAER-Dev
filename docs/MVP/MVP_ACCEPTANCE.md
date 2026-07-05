@@ -68,7 +68,7 @@ casualty needing a capability is never sent to a facility lacking it.
 ```
 AC-5.1   THE KILLER ASSERTION. Configure one facility with
          has_surgery=False. Run a scenario with surgical casualties.
-         Assert: NO event where a casualty with needs_surgery=True
+         Assert: NO event where a casualty with requires_dcs=True
          is treated at the has_surgery=False facility.
          (If this fails, routing ignores capability — the feature is
          not wired, regardless of test execution status.)
@@ -77,8 +77,8 @@ AC-5.2   Configure all facilities has_surgery=True. Run. Surgical
          casualties ARE treated (no casualty stuck unrouteable when
          capability exists). Confirms the flag gates, doesn't block.
 
-AC-5.3   Determinism: AC-5.1 produces byte-identical event log across
-         two runs at seed=42.
+AC-5.3   Determinism: AC-5.1 produces byte-identical canonical log
+         (F0.1) across two runs at seed=42.
 ```
 **Wire-order note:** #5 must land before #45 sweep. A sensitivity sweep
 over capability-blind routing measures a broken mechanism.
