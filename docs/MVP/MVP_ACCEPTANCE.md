@@ -216,3 +216,31 @@ Eight features, 21 acceptance criteria. The four intrinsic wire features
 correct. The two surface features (#44, #45) carry the criteria that
 prove the analysis is trustworthy. Together they make beat 4 of the
 demo — the PoC sentence — defensible.
+
+### #writer — engine→blackboard facility writer — INTRINSIC (Rule 3 gated)
+Property: blackboard facility keys are truthful, non-clobbering,
+and behaviourally inert until a consumer goes live.
+AC-W.1  KILLER. After any run with the writer enabled, each
+        written key (facility_utilisation, fst_queue_depth) is
+        populated and equals a value independently derived from
+        the event stream (#TREATMENT_START − #TREATMENT_END vs
+        capacity). Positive assertion via harness — "no crash"
+        is not evidence (bus swallows subscriber exceptions).
+AC-W.2  NON-INTERFERENCE (C10). Factory-owned mascal_active
+        per-casualty values are never overwritten by the writer.
+        Requires the None-sentinel amendment to
+        set_facility_context (mascal_active: bool | None = None;
+        write only when not None).
+AC-W.3  TRACE NEUTRALITY. Canonical digest identical writer-on vs
+        writer-off on any scenario. Basis: zero live readers
+        (FQ1). If this ever fails, a consumer went live — stop
+        and re-gate.
+AC-W.4  DETERMINISM. Writer-on double run, canonical digests
+        equal.
+AC-W.5  NO ALIASING. Two concurrently active facilities: a read
+        colocated with each write point observes its own
+        facility's value — no last-writer-wins cross-contamination
+        of the global scalar.
+Wire-order: #writer lands before #4/#42/#53/#58; read-side
+behaviour belongs to those features' ACs. #39 excluded
+(consumables lane, MAAFI_VERDICT.md:120).
