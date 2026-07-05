@@ -18,6 +18,28 @@ from faer_dev.core.schemas import Casualty, Facility, SimulationConfig
 
 
 # ============================================================================
+# Golden-trace regeneration (F0.3 O1)
+# ============================================================================
+
+def pytest_addoption(parser):
+    """Golden fixtures may only be regenerated via `pytest --regen-golden`,
+    and the resulting diff must be reviewed in the commit — never
+    regenerated silently to make red go green."""
+    parser.addoption(
+        "--regen-golden",
+        action="store_true",
+        default=False,
+        help="Regenerate golden trace fixtures (review the diff before committing).",
+    )
+
+
+@pytest.fixture
+def regen_golden(request) -> bool:
+    """True when the run was invoked with --regen-golden."""
+    return request.config.getoption("--regen-golden")
+
+
+# ============================================================================
 # BT Global Blackboard Cleanup (prevents cross-test pollution)
 # ============================================================================
 
