@@ -12,13 +12,20 @@ FAER-Dev is the development branch for refactoring the FAER poly-hybrid simulati
 architecture validated by a multi-LLM Design Space Exploration (DSE). Coding style, the
 testing pattern, the HC-*/MC-* constraints and verification standards live in `AGENTS.md`.
 
+> **Authority (ratified, F0):** `docs/MAAFI/MAAFI_VERDICT.md` governs tier and build
+> order; it supersedes all earlier feature plans.
+
 ## Hard Rules (Never Violate)
 
-1. **SimPy yields live only in the engine layer.** All `yield` / `yield from` stay inside
-   `src/faer_dev/simulation/`; the decoupled modules (routing, metrics, emitter, pfc, analytics,
-   plugins) contain none. `yield from` delegation to a sub-generator is allowed within the layer
-   but must release any acquired SimPy resource on exception — the safety property proven in
-   `notebooks/phase2/NB44_yield_from_safety.ipynb`.
+1. **SimPy yields live only in the engine layer (B3, ratified).** All `yield` / `yield from`
+   stay inside `src/faer_dev/simulation/`; the decoupled modules (routing, metrics, emitter,
+   pfc, analytics, plugins) contain none. Within the layer, yields may live in extracted
+   generator modules (arrivals, transport, ccp) provided they are exception-safe and covered
+   by the strangler/oracle suite; `engine.py` remains the sole *orchestrator* of patient
+   journeys. (The earlier "all 5 yield points stay in engine.py" form was aspirational, not
+   load-bearing — determinism holds with 10 distributed yields.) `yield from` delegation to a
+   sub-generator must release any acquired SimPy resource on exception — the safety property
+   proven in `notebooks/phase2/NB44_yield_from_safety.ipynb`.
 
 2. **Every path-replacing extraction is toggle-gated** behind `SimulationToggles`. Legacy path
    preserved; fixed-seed equivalence checked before merging. Additive decouplings (e.g. the
@@ -47,6 +54,25 @@ testing pattern, the HC-*/MC-* constraints and verification standards live in `A
 6. **Notebook proves it first.** Every extraction has a proof spec **or** notebook under
    `docs/phase<N>/` / `notebooks/phase<N>/` that validates before the production code is touched.
 
+7. **Golden-trace regeneration policy (F0.3 O1).** `tests/golden/*.json` may only be
+   regenerated via `pytest --regen-golden`, and the resulting diff must be reviewed in the
+   commit — never regenerated silently to make red go green.
+
+8. **Doctrine-as-config (standing, for #29 and all future policy comparisons).** Any compared
+   doctrines/policies must run through IDENTICAL code paths, differing only in configuration —
+   never a code branch per doctrine. Branching breaks CRN: different paths draw different
+   random numbers, and the measured difference stops being attributable to the policy.
+   Nothing violates this today; this rule keeps it that way.
+
+## Standing Constraints (verified, for Phase 2)
+
+- **Event bus (C6):** the bus logs-but-swallows subscriber exceptions
+  (`src/faer_dev/events/bus.py:62-80` — non-fatal, subscriber stays attached), and fires
+  AFTER the routing decision — sufficient for consumable tracking (#35-37), insufficient for
+  stockout feedback (#39) without a blackboard write-back loop. Two wildcard subscribers
+  already exist (`event_store.append`, `AnalyticsEngine`); a throwing `ConsumableManager`
+  degrades quietly, so subscribers must be exception-safe by design.
+
 ## Current Position
 
 Active phase and current step are recorded in **`docs/CURRENT.md`** (single source of truth);
@@ -57,6 +83,7 @@ the full ordered sequence per phase lives in that file's linked `BUILD_INSTRUCTI
 | File | Purpose |
 |------|---------|
 | `docs/CURRENT.md` | Active phase + current step + link to the active sequence |
+| `docs/MAAFI/MAAFI_VERDICT.md` | MAAFI verdict — governs tier and build order (authority) |
 | `AGENTS.md` | Coding style, testing pattern, HC-*/MC-* constraints, verification |
 | `docs/dse/faer_dse_context_index.md` | DSE source of truth for HC-*/MC-* constraints |
 | `scripts/check_claude_md.py` | Session-start probe — must pass before building |
