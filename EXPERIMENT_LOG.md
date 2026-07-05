@@ -23,5 +23,19 @@
 
 ---
 
+### Entry 2: S1 phase-gate minutes GM-1–5 ratified (2026-07-05)
+
+**Decision:** the five gate minutes tabled at the S1 halt are RATIFIED (human invocation flag, S1.1 pre-author session).
+**Method:** gate adjudication over the S1 evidence — T-5-6 starvation characterisation, O7 absence audit, R16a-at-defaults minute, legacy-path status, and the T-5-5 tripwire outcome.
+**Result:**
+- **GM-1 STRATEVAC starvation:** confirmed success-shaped silent disposition (T-5-6). Resolution owned by Step 5a — the disposition-metric decision (compliant/censored/failed, plus warm-up respect) is made there; no engine change before it. Accepted for Steps 2–4: toggle default-off, no current scenario starves.
+- **GM-2 O7 absence:** ruled F0 debt, SCHEDULED — not descoped. Erlang/Little is the cheap external-theory anchor for the PoC's queue-dependent claims. Build after Step 2 using `scenario_overrides` for the single-node collapse; gate for Step 5.
+- **GM-3 R16a at defaults:** persists on the legacy path by design (Rule 2 letter). Interim rule: every analysis or doctrine-comparison scenario sets capability ON (+extracted); enforced by the Step-2 guard/version-stamp family. Closes at retirement.
+- **GM-4 legacy retirement:** named milestone, window after the Step-3 gate and before Step-5 pre-flight (Step-5 comparisons run a single code path — Rule 8 purity). Scope: extracted default-on, legacy walk deletion, capability-default decision (flipping it closes R16a). Own mini instruction file.
+- **GM-5 violation census (from the tripwire):** the T-5-1 predicate graduates to a standing reported metric — any capability-ON ensemble reports the violation census — and a promotion census joins the Step-5 pre-flight probes alongside warm-up. Until Step 3 lands the re-route, this keeps the stale-hop gap from silently contaminating the PoC sentence (bed-constrained MASCAL is precisely the regime that produces long holds and promotions).
+**Artifacts:** `docs/MVP/BUILD_S1.md` §4 OUTCOME + §8 gate · `tests/test_capability_retriage.py` (T-5-5b/T-5-6/T-5-7) · gate ruling message (chat, 2026-07-05)
+
+---
+
 *Subsequent entries added as NB34-39 are completed.*
 *Format: date, hypothesis, method, result, artifacts.*
