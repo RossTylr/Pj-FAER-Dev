@@ -809,6 +809,11 @@ class PolyhybridEngine:
                             if new_triage is not None:
                                 old_triage_str = triage_str
                                 patient.triage = new_triage
+                                # Re-triage invalidates the once-per-journey
+                                # requires_dcs (same rule as routing.py:47-50)
+                                patient.requires_dcs = (
+                                    new_triage == TriageCategory.T1_SURGICAL
+                                )
                                 # Recompute target treatment department using
                                 # the updated triage before next hold check.
                                 patient.metadata.pop("target_department", None)
