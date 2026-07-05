@@ -61,16 +61,32 @@ def triage_decisions(patient: Casualty) -> Dict[str, Any]:
     return decisions
 
 
+def _meets_capability(patient: Casualty, facility: Facility) -> bool:
+    """True when the facility can deliver the care the casualty needs.
+
+    S1 wires surgery only: a casualty flagged ``requires_dcs`` may only be
+    routed to a facility with ``has_surgery``. Applied as candidate-set
+    exclusion, never weighting — weights silently dominate soft flags
+    (the R1-ALPHA lesson). Extensible to further capability pairs.
+    """
+    return facility.has_surgery or not patient.requires_dcs
+
+
 def _find_highest_reachable(
     current_facility: Facility,
     network: TreatmentNetwork,
     decisions: Dict[str, Any],
+    patient: Optional[Casualty] = None,
+    *,
+    use_capability_routing: bool = False,
 ) -> Optional[str]:
     """Find the highest-role facility reachable from current position.
 
     Walks ROLE_ORDER from highest to lowest, returns the first facility
     reachable via nx.has_path(). For bypass patients, R1 nodes are
-    excluded from the reachability graph. O(roles × facilities).
+    excluded from the reachability graph. With capability routing,
+    non-capable facilities are excluded from the candidate set before
+    Dijkstra ever runs. O(roles × facilities).
     """
     current_idx = ROLE_ORDER.index(current_facility.role)
     # For bypass patients, exclude R1 nodes from reachability check
@@ -92,6 +108,8 @@ def _find_highest_reachable(
         for fac_id, fac in network.facilities.items():
             if fac.role != target_role:
                 continue
+            if use_capability_routing and not _meets_capability(patient, fac):
+                continue
             if nx.has_path(graph, current_facility.id, fac_id):
                 return fac_id
     return None
@@ -104,6 +122,7 @@ def get_next_destination(
     decisions: Dict[str, Any],
     *,
     use_graph_routing: bool = False,
+    use_capability_routing: bool = False,
 ) -> Optional[str]:
     """Determine the next facility in the treatment chain.
 
@@ -111,6 +130,9 @@ def get_next_destination(
 
     When use_graph_routing=False (default): legacy role-walk first-match.
     When use_graph_routing=True: Dijkstra via network.get_route().
+    When use_capability_routing=True: non-capable facilities (S1: lacking
+    has_surgery for a requires_dcs casualty) are excluded from the
+    candidate set on both modes.
 
     Returns:
         Facility ID string, or None when journey is complete.
@@ -126,7 +148,8 @@ def get_next_destination(
 
     if use_graph_routing:
         target = _find_highest_reachable(
-            current_facility, network, decisions
+            current_facility, network, decisions, patient,
+            use_capability_routing=use_capability_routing,
         )
         if target is None:
             return None
@@ -143,6 +166,8 @@ def get_next_destination(
             continue
         for fac_id, fac in network.facilities.items():
             if fac.role != next_role:
+                continue
+            if use_capability_routing and not _meets_capability(patient, fac):
                 continue
             if network.graph.has_edge(current_facility.id, fac_id):
                 return fac_id

@@ -681,6 +681,7 @@ class PolyhybridEngine:
                 next_id = _extracted_get_next_destination(
                     patient, current_facility, self.network, decisions,
                     use_graph_routing=self.toggles.enable_graph_routing,
+                    use_capability_routing=self.toggles.enable_capability_routing,
                 )
             else:
                 next_id = _get_next_destination(

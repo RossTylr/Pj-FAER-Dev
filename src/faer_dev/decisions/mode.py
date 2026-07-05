@@ -13,6 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
+from faer_dev.core.exceptions import ConfigurationError
+
 
 class DecisionMode(Enum):
     """How clinical decisions are made."""
@@ -56,3 +58,16 @@ class SimulationToggles:
     enable_extracted_pfc: bool = False
     # Phase 1.5: graph-based Dijkstra routing (replaces role-walk first-match)
     enable_graph_routing: bool = False
+    # S1.2a: capability-aware routing (requires_dcs ↔ has_surgery), strangler
+    # side only — the legacy walk stays capability-blind until retirement
+    enable_capability_routing: bool = False
+
+    def __post_init__(self) -> None:
+        # R11-family guard: a capability toggle that is inert on the default
+        # (legacy) path is the silent-toggle trap. Legacy + capability is an
+        # invalid combination by design — fail at construction, not mid-run.
+        if self.enable_capability_routing and not self.enable_extracted_routing:
+            raise ConfigurationError(
+                "enable_capability_routing requires enable_extracted_routing=True: "
+                "the legacy walk is capability-blind by design."
+            )
