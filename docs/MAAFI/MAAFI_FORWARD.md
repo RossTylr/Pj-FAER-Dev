@@ -187,12 +187,21 @@ Pipeline (injury → triage → severity → regions → vitals): the factory co
 **(d) Logical config blocks (from `coin.yaml` / `iron_bridge.yaml`):**
 ```
 name, description, operational_context,
-arrivals{ base_rate_per_hour, triage_distribution, enable_mascal, mascal_* },
+arrivals{ base_rate_per_hour, triage_distribution*, enable_mascal, mascal_* },
 facilities[]{ id, name, role, beds, or_tables*, icu_beds*, has_surgery, has_blood, has_imaging, coordinates },
 edges[]{ from, to, travel_time_minutes, transport, threat_level* },
 duration_hours, warmup_hours, seed
 ```
 `*` = present in YAML but **silently ignored by the builder** (`or_tables`, `icu_beds`, edge `threat_level`).
+
+> **F0 addendum (2026-07-05):** `arrivals.triage_distribution` is also config-dead — the
+> engine samples triage from the hard-coded context tables in `core/triage.py`
+> (`TRIAGE_DISTRIBUTIONS` / `MASCAL_TRIAGE_SHIFTS`), never from the YAML key. The current
+> numeric alignment between `coin.yaml` and the COIN table is coincidental. O2
+> (`tests/test_oracles.py::test_o2_triage_distribution`) compares observed shares to the
+> YAML key, so it doubles as the config-coherence tripwire: edit the YAML and O2 exposes
+> the disconnect. **Step 2 decision:** wire the key through the builder or delete it from
+> the presets.
 
 **Cross-block coupling:**
 - **(e) unit positioning (#8):** ❌ **no `units` block exists** in any preset. #8 is not config-supported today.
@@ -201,7 +210,7 @@ duration_hours, warmup_hours, seed
 - **Cross-block validation that DOES exist:** the builder validates **edge→facility referential integrity** — raises `ConfigurationError` on an edge referencing an unknown source/destination ([builder.py:174-184](../src/faer_dev/config/builder.py#L174)), with a special-case for `POI*` synthetic sources. This is the one real cross-block guard.
 - **(h) overlays/presets (#51):** ❌ **no overlay/composition system.** Five standalone monolithic preset files (`coin/lsco/hadr/specops/iron_bridge`). 0 overlay combinations possible → combinatorics N/A (but #51/#52 would have to *introduce* composition, then face the R14 explosion).
 
-**Net F9 risk:** the config layer **silently drops** capability-relevant fields (`or_tables`, `icu_beds`, `threat_level`) and has **no version/migration**. Every future intrinsic feature that adds a YAML key inherits silent-default behaviour — wrong numbers, no error.
+**Net F9 risk:** the config layer **silently drops** capability-relevant fields (`or_tables`, `icu_beds`, `threat_level`; F0 addendum: `triage_distribution`) and has **no version/migration**. Every future intrinsic feature that adds a YAML key inherits silent-default behaviour — wrong numbers, no error.
 
 ---
 

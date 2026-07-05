@@ -57,7 +57,9 @@ def run_to_log(
 
         # Close the arrival window: freeze the lifetime cap at the count
         # already generated, so continued stepping only drains in-flight
-        # casualties. Test-level poke; no engine change.
+        # casualties. Deliberate private-attr coupling (_max_arrivals is
+        # the only window-close seam ArrivalProcess exposes); test-level
+        # poke, no engine change — same pattern as _hold_timeout_override.
         arrival_process = engine.arrival_process
         if arrival_process is not None:
             arrival_process._max_arrivals = arrival_process.count
