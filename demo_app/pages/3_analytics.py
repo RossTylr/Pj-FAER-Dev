@@ -18,7 +18,7 @@ st.header("Analytics Dashboard")
 has_data = "analytics" in st.session_state and "engine_metrics" in st.session_state
 
 if not has_data:
-    st.warning("Run a simulation first on the **Run Simulation** page.")
+    st.warning("Run a simulation first on the **Engine Room** page.")
     st.stop()
 
 analytics = st.session_state["analytics"]

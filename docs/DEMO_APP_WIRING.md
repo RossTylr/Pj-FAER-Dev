@@ -1,17 +1,23 @@
 # Demo App Build Instructions
 ## Wire After Phase 1 NB39 Gate Passes
 
+> **Status (2026-07-05): historical.** Wiring is complete. Pages 2 (Run Simulation)
+> and 5 (Architecture Explorer) were later removed — both superseded by the Phase 2
+> Engine Room page (`demo_app/pages/6_engine_room.py`), which runs the engine directly
+> via `demo_app/_engine_runner.py`. The app is now 4 pages: Scenario, Analytics,
+> Monte Carlo, Engine Room. Steps below are kept as a build record.
+
 ---
 
 ## What This App Is
 
-A 5-page Streamlit app demonstrating the FAER-MIL engine's full capability.
+A Streamlit app demonstrating the FAER-MIL engine's full capability.
 It is a portfolio piece for Faculty AI and Defence stakeholders, not an
 internal development tool.
 
 ## Current State: Scaffolded
 
-All 5 pages exist with layout, placeholder metrics, and TODO comments showing
+All pages exist with layout, placeholder metrics, and TODO comments showing
 exactly where to wire the engine. The app runs today (`streamlit run demo_app/app.py`)
 and shows the UI structure without live data.
 

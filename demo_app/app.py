@@ -35,11 +35,8 @@ st.divider()
 
 st.subheader("Pages")
 st.page_link("pages/1_scenario.py", label="Scenario Configuration", icon="⚙️")
-st.page_link("pages/2_simulation.py", label="Run Simulation", icon="▶️")
 st.page_link("pages/3_analytics.py", label="Analytics Dashboard", icon="📊")
 st.page_link("pages/4_monte_carlo.py", label="Monte Carlo Ensemble", icon="🎲")
-st.page_link("pages/5_architecture.py", label="Architecture Explorer", icon="🏗️")
-st.page_link("pages/6_engine_room.py", label="Engine Room (X-Ray)", icon="🔬")
 st.page_link("pages/6_engine_room.py", label="Engine Room (X-Ray)", icon="🔬")
 
 st.divider()

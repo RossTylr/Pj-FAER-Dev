@@ -69,4 +69,4 @@ st.session_state["scenario_config"] = {
     "seed": seed,
 }
 
-st.success("Configuration saved. Navigate to **Run Simulation** to execute.")
+st.success("Configuration saved. Navigate to the **Engine Room** and select the Custom scenario to execute.")
