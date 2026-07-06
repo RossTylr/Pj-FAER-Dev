@@ -188,6 +188,20 @@ class PolyhybridEngine:
                 rng=self._rng,
             )
 
+        # S1.1: facility context writer (direct-call, three write-sites).
+        # Shares py_trees' process-global storage with the inverted factory
+        # by construction — the set_facility_context None-sentinel protects
+        # the factory's mascal_active key (AC-W.2).
+        if self.toggles.enable_facility_writer:
+            from faer_dev.decisions.blackboard import SimBlackboard
+            from faer_dev.simulation.facility_writer import FacilityContextWriter
+
+            if not hasattr(self, "_blackboard"):
+                self._blackboard = SimBlackboard(name="engine")
+            self._facility_writer = FacilityContextWriter(self)
+        else:
+            self._facility_writer = None
+
         # Transport pool
         self._transport_config = transport_config or get_transport_config(context)
         self.transport_pool = TransportPool(
@@ -961,6 +975,8 @@ class PolyhybridEngine:
             patient.current_facility = current_id
             patient.facilities_visited.append(current_id)
             self._log_event("FACILITY_ARRIVAL", patient, current_id)
+            if self._facility_writer is not None:  # S1.1: waiting changed
+                self._facility_writer.update(current_id)
             self._update_facility_congestion(current_id)
 
             # Golden Hour tracking: record first R2 arrival
@@ -1162,6 +1178,8 @@ class PolyhybridEngine:
                 "TREATMENT_START", patient, facility_id,
                 {"wait_time": wait_time},
             )
+            if self._facility_writer is not None:  # S1.1: bed acquired
+                self._facility_writer.update(facility_id)
 
             triage_key = (
                 patient.triage.name
@@ -1182,6 +1200,10 @@ class PolyhybridEngine:
                 "TREATMENT_END", patient, facility_id,
                 {"duration": treatment_time},
             )
+        # S1.1: bed released at context exit — occupancy only reflects the
+        # release here, outside the with block
+        if self._facility_writer is not None:
+            self._facility_writer.update(facility_id)
 
     def _vehicle_return(
         self,

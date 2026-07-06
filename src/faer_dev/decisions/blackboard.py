@@ -152,12 +152,18 @@ class SimBlackboard:
         self,
         utilisation: float = 0.0,
         fst_queue: int = 0,
-        mascal_active: bool = False,
+        mascal_active: bool | None = None,
     ) -> None:
-        """Set facility-level context before ticking DCS/dept BT."""
+        """Set facility-level context before ticking DCS/dept BT.
+
+        ``mascal_active`` is written only when explicitly given (None
+        sentinel) — an omitted argument must not clobber the factory's
+        per-casualty value (collision C10, AC-W.2).
+        """
         self.set("facility_utilisation", utilisation)
         self.set("fst_queue_depth", fst_queue)
-        self.set("mascal_active", mascal_active)
+        if mascal_active is not None:
+            self.set("mascal_active", mascal_active)
 
     # ── Convenience properties (Issue #6 fix) ──────────────────
 

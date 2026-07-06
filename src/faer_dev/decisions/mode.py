@@ -61,6 +61,9 @@ class SimulationToggles:
     # S1.2a: capability-aware routing (requires_dcs ↔ has_surgery), strangler
     # side only — the legacy walk stays capability-blind until retirement
     enable_capability_routing: bool = False
+    # S1.1: facility context writer — engine pushes live facility state onto
+    # the blackboard at three call-sites; contract-first, no consumer wired
+    enable_facility_writer: bool = False
 
     def __post_init__(self) -> None:
         # R11-family guard: a capability toggle that is inert on the default
