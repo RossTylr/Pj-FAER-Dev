@@ -46,5 +46,23 @@
 
 ---
 
+### Entry 4: S1.1 §8 comparison-lane riders — ledger appends (2026-07-06)
+
+Four items per BUILD_S1_1.md v1.1 §8 R3, wordings (i), (ii) and (iv) verbatim from §8; (iii) is R1's verdict with its evidence.
+
+**(i) Instrument validation:** killer-topology 20/20-detected vs coin 0/0-clean brackets the T-5-1 violation census — the GM-5 instrument is proven, coin's zeros are retroactively meaningful.
+
+**(ii) R16a status reworded:** "mitigated behind flag, open at defaults; trigger condition = nearer/lighter non-capable candidate; closing action = capability-default decision at legacy retirement (GM-4)."
+
+**(iii) R1 verdict — (b) STREAM CONTAMINATION, k=3.** Blind-first diff (raw comparison recorded before any mechanism narrative): Config A defaults vs Config C extracted+graph+capability, coin/seed 42/24 h/uncapped → 31 vs 30 ARRIVALs, identical (id, sim_time) prefix 3, interarrival divergence from CAS-0004. Mechanism traced after the verdict: routing is draw-free (routing.py, zero rng references) — the pre-verdict "graph routing draws extra numbers" hypothesis is wrong in its literal form; the culprit is draw INTERLEAVING on the single shared generator (engine.py:142) serving arrivals (arrivals.py:146), treatment exponentials (engine.py:1096/1140/1192), transport trip normals (transport.py:291) and vehicle-return normals (engine.py:1228). First full-log divergence: CAS-0001 routed POI-1→R1-ALPHA (A) vs POI-1→R2-MAIN (C) — the designed policy difference — after which journey draws reorder against arrival draws. COMPARISON LANE FROZEN; dual-stream separation is the IMMEDIATE Step-2 priority per the register row; EXP-IB-1000 design threatened; S1.1 build unaffected. Full report: `docs/MVP/RNG_DIAGNOSTIC.md`.
+
+**R2 record (satisfied-by-run):** neither committed test covers A≡B at canonical-trace level (T-5-2c holds extracted ON in both arms, tests/test_capability_routing.py:176-191; TestRegressionEquivalence compares A-vs-B but at metrics level only, tests/test_routing.py:163-197). The one-off canonical byte-diff was run: A (defaults) vs B (extracted ON), coin/seed 42/24 h/uncapped — **digests byte-identical** (`0e920ed821a1…`, 258 events each). No field-level canonicalisation findings. Corollary for (iii): contamination enters at the graph-routing step (B→C), not the extraction step (A→B).
+
+**(iv) Equivalence-fixture lesson:** route-coincident fixtures cannot detect draw-count divergence between paths; add a route-divergent fixture when stream separation lands.
+
+**Artifacts:** `docs/MVP/RNG_DIAGNOSTIC.md` (commit `88020e8`) · scratchpad scripts `r1_arrival_diff.py` / `r1_first_divergence.py` / `r2_ab_bytediff.py` (session transcript) · BUILD_S1_1.md v1.1 §8.
+
+---
+
 *Subsequent entries added as NB34-39 are completed.*
 *Format: date, hypothesis, method, result, artifacts.*
