@@ -37,5 +37,14 @@
 
 ---
 
+### Entry 3: S1.1 facility context writer built — AC-W.1–W.5 green (2026-07-06)
+
+**Hypothesis:** the writer can land contract-first (no consumer) with zero trace impact: writer ON ≡ writer OFF at canonical-digest level, O1 golden untouched, determinism preserved.
+**Method:** red-then-green per BUILD_S1_1.md v1.1 §3, order T-W-2 → T-W-1 → T-W-3a → T-W-4 → T-W-5. T-W-2 red witnessed (current `set_facility_context` clobbers factory `mascal_active=True` → False; the C10 collision live in the test output) before the None-sentinel amendment. T-W-1 red witnessed (toggle declared, engine unwired → no `_blackboard`) before the writer/wiring. One feature commit; §4 verification after.
+**Result:** ALL GREEN. Suite 127 → 134 (×2 consecutive); O1 golden byte-identical, `--regen-golden` not used, `git status --porcelain tests/golden/` empty; Rule-4 conserved on defaults / writer-on / writer+inverted (arrivals=dispositions 13/13/7; writer-on ≡ defaults exactly — the inverted delta is factory RNG consumption, independent corroboration of writer trace-neutrality alongside T-W-3a). **Rule-3 record:** intrinsic LOC actual 36 behaviour-bearing vs 35–45 declared (within); 75 raw added incl. 39 spec-mandated docstring/comment lines — convention stated in the OUTCOME block for the gate to accept or re-rule. T-W-3a stands as the permanent tripwire: if it ever fails, a consumer went live — STOP and re-gate.
+**Artifacts:** commit `339b940` · `src/faer_dev/simulation/facility_writer.py` · `tests/test_facility_writer.py` · `docs/MVP/BUILD_S1.md` §6 S1.1 OUTCOME block · `docs/MVP/BUILD_S1_1.md` v1.1 (blob `748d492`)
+
+---
+
 *Subsequent entries added as NB34-39 are completed.*
 *Format: date, hypothesis, method, result, artifacts.*

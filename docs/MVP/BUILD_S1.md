@@ -88,6 +88,20 @@ Verdict line (MAAFI_VERDICT.md:83, verbatim sighted): tier **I (INTRINSIC)**, ~2
 Known hazards (Q7/Q8): `set_facility_context` (blackboard.py:151-160) writes a global scalar triple including `mascal_active=False` on every call — clobbers the factory's per-casualty value (casualty_factory.py:225; collision C10). Required amendment when building: `mascal_active: bool | None = None`, write only when not None. `CheckFacilityUtilisation` (bt_nodes.py:126-136) may sit in a live tree — populating the key could flip dormant decisions. Wildcard-subscriber design risks last-writer-wins scalar aliasing; the verdict's per-tick-callback shape (engine call-site immediately before the consuming tick) is the likely correct design — FQ1 locates it.
 **Preconditions to lift the hold:** (1) FQ1/FQ3/FQ4 answered; (2) writer ACs AUTHORED into MVP_ACCEPTANCE.md — none exist there today (grep-confirmed: no writer/blackboard/mascal_active hits; AC set is 19/46/5/1/10/30/44/45) — drafted from FQ answers + the verdict line, human-ratified; (3) Rule-3 human gate scheduled. Note: verdict says #4/#42/#53/#58; the handover added #39 (stockout write-back) — FQ3 resolves whether #39 belongs to this writer or a separate mechanism.
 
+### S1.1 OUTCOME (2026-07-06) — BUILT, hold lifted per preconditions
+
+All three preconditions were met before build: FQ1/FQ3/FQ4 answered (S1_FOLLOWUP_ANSWERS.md); AC-W.1–W.5 authored into MVP_ACCEPTANCE.md @ `000c287` (human-delegated); Rule-3 human gate given at authorisation of BUILD_S1_1.md v1.1 (instruction file blob `748d492`, committed alongside this block). DPs 1–3 accepted at gate.
+
+**Built (commit `339b940`):** `enable_facility_writer` toggle (default False, no routing dependency) · `set_facility_context` None-sentinel (the C10 fix flagged above — an omitted `mascal_active` no longer clobbers the factory's per-casualty value) · `src/faer_dev/simulation/facility_writer.py`, direct-call shape per the verdict's C2 per-tick-callback ruling, NOT a bus subscriber · three engine write-sites: FACILITY_ARRIVAL emission (engine.py:963 pre-build numbering), post-bed-acquire, post-bed-release at context exit (TREATMENT_END logs inside the `with`; occupancy only reflects the release at exit — placement matters and is test-cited).
+
+**Contract recorded:** `facility_beds_available[fid]` per-facility dict is the durable consumer contract for #42/#53; the global scalar pair (`facility_utilisation`, `fst_queue_depth`) means "facility most recently written" — per-decision semantics only (#4's shape). Dept/r1 dict keys deliberately NOT written — #4 defines them at its decision moment. #58 weather keys not written (writer-insufficient per verdict).
+
+**Evidence:** T-W-2 sentinel red witnessed (`False is True` clobber) then green · T-W-1 killer: snapshot ≡ event-stream derivation, per-facility and last-written scalars · T-W-3a writer ON≡OFF digest (the standing consumer-goes-live tripwire) · T-W-4 determinism · T-W-5 no-aliasing with colocated reads · combined inverted+writer smoke conserved. Suite 127 → 134, green ×2 post-commit; O1 golden byte-identical, regen not used; Rule-4 conserved on defaults / writer-on / writer+inverted (13/13/7 arrivals=dispositions — writer-on matches defaults exactly; the inverted delta is factory RNG consumption, not the writer).
+
+**Rule-3 record:** intrinsic-zone LOC actual = **36 behaviour-bearing** vs the 35–45 declaration (within); raw added lines = 75, of which 39 are spec-mandated docstrings/comments (the §1 contract-intent documentation). Counting convention stated for the gate: the declaration is read as behaviour-bearing lines; every added line traces to a BUILD_S1_1 §1–§3 requirement.
+
+**Consumer wiring remains UNAUTHORISED:** first consumer (#4) re-gates AC-W.3 at its own build.
+
 ## 7. FQ — read-only follow-up (answer into docs/MVP/S1_FOLLOWUP_ANSWERS.md, cite file:line)
 
 FQ2 — ANSWERED out-of-band (verbatim ACs + Hard Rules sighted; recorded in this file §3/§5).

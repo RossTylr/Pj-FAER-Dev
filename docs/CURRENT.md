@@ -3,6 +3,9 @@
 <!-- ACTIVE_PHASE: phase2 -->
 <!-- CURRENT_STEP: phase2/NB40_graph_routing -->
 
+> **STALE — canonical state lives at [docs/MVP/CURRENT.md](MVP/CURRENT.md).** This file
+> survives only as the `check_claude_md.py` marker host until Step 2 reconciles the checker.
+
 - **Active phase:** Phase 2 (Plug)
 - **Current step:** `NB40_graph_routing` — landed, parity-green
 - **Next:** `NB44_yield_from_safety`
