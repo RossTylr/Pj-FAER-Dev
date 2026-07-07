@@ -14,6 +14,7 @@ import numpy as np
 import simpy
 
 from faer_dev.core.enums import OperationalContext, PatientState, Role, TriageCategory
+from faer_dev.core.rng import KeyedRNGRoot, RNGPurpose
 from faer_dev.core.schemas import Casualty, Facility
 from faer_dev.network.topology import TreatmentNetwork
 from faer_dev.simulation.arrivals import (
@@ -137,10 +138,20 @@ class PolyhybridEngine:
         # Legacy dict config support for builder.py
         config: Optional[Dict[str, Any]] = None,
         toggles: Optional[SimulationToggles] = None,
+        replication_index: int = 0,
     ) -> None:
         self.context = context
         self._rng = np.random.default_rng(seed)
         self.toggles = toggles or SimulationToggles()
+        # S2 slice 0: keyed-draw root — replication enters the root entropy
+        # or ensemble arms correlate. None in shared mode.
+        self._replication_index = replication_index
+        if self.toggles.rng_mode == "keyed":
+            self._keyed_rng: Optional[KeyedRNGRoot] = KeyedRNGRoot(
+                seed, replication_index
+            )
+        else:
+            self._keyed_rng = None
 
         # SimPy environment
         self.env = simpy.Environment()

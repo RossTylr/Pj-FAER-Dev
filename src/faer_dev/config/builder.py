@@ -84,6 +84,7 @@ def build_engine_from_dict(
     scenario: Dict[str, Any],
     toggles: Optional[SimulationToggles] = None,
     seed: Optional[int] = None,
+    replication_index: int = 0,
 ) -> PolyhybridEngine:
     """Build a PolyhybridEngine from a raw scenario dictionary.
 
@@ -91,6 +92,9 @@ def build_engine_from_dict(
         scenario: Parsed YAML dict with facilities, edges, arrivals, etc.
         toggles: Optional SimulationToggles override. If None, uses defaults.
         seed: Optional seed override. If None, uses scenario["seed"] or 42.
+        replication_index: Ensemble replication ordinal; enters the keyed
+            RNG root entropy as (seed, replication_index). Ignored by the
+            shared-mode stream (S2 slice 0).
 
     Returns:
         Configured PolyhybridEngine ready to run.
@@ -158,6 +162,7 @@ def build_engine_from_dict(
         seed=resolved_seed,
         config=deepcopy(scenario),
         toggles=toggles,
+        replication_index=replication_index,
     )
 
     edges = scenario.get("edges", [])
@@ -233,6 +238,7 @@ def build_engine_from_preset(
     name: str,
     toggles: Optional[SimulationToggles] = None,
     seed: Optional[int] = None,
+    replication_index: int = 0,
 ) -> PolyhybridEngine:
     """Build a PolyhybridEngine from a named preset.
 
@@ -255,7 +261,9 @@ def build_engine_from_preset(
         raise FileNotFoundError(f"Preset not found: {yaml_path}")
 
     raw = load_config(yaml_path)
-    return build_engine_from_dict(raw, toggles=toggles, seed=seed)
+    return build_engine_from_dict(
+        raw, toggles=toggles, seed=seed, replication_index=replication_index,
+    )
 
 
 def get_preset_raw(name: str) -> Dict[str, Any]:

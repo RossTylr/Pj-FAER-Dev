@@ -155,16 +155,21 @@ class EnsembleBuilder:
         Args:
             preset: Scenario preset name (coin, lsco, hadr, specops).
             n_replications: Number of replications to run.
-            base_seed: Base random seed; replication i uses base_seed + i.
-            patient_seed: Reserved for CRN mode. Requires dual-seed engine
-                support (not yet available). Accepted for API stability but
-                currently has no effect on seed assignment.
+            base_seed: Base random seed. Shared mode: replication i uses
+                base_seed + i (legacy scheme, unchanged). Keyed mode: the
+                master seed is constant across replications and replication
+                i enters the keyed root entropy as (master_seed, i).
+            patient_seed: CRN dual-seed support (S2 slice 0). In keyed mode,
+                when provided it becomes the master seed of the keyed root —
+                two ensembles sharing patient_seed and replication indices
+                draw identical per-entity randomness (paired arms). Inert in
+                shared mode (legacy behaviour preserved).
             toggles: Simulation feature toggles.
         """
         self.preset = preset
         self.n_replications = n_replications
         self.base_seed = base_seed
-        self.patient_seed = patient_seed  # Inert until engine supports dual seeds
+        self.patient_seed = patient_seed  # Meaningful in keyed mode only
         self.toggles = toggles or SimulationToggles()
         self._stores: List[EventStore] = []
 
@@ -181,15 +186,32 @@ class EnsembleBuilder:
         )
 
         for i in range(self.n_replications):
-            rep_seed = self.base_seed + i
-            logger.info(
-                "Ensemble replication %d/%d (seed=%d)",
-                i + 1, self.n_replications, rep_seed,
-            )
+            if self.toggles.rng_mode == "keyed":
+                # Replication enters the ROOT entropy, not the seed: pairing
+                # across doctrine arms needs identical (master, i) roots.
+                master = (
+                    self.patient_seed
+                    if self.patient_seed is not None
+                    else self.base_seed
+                )
+                logger.info(
+                    "Ensemble replication %d/%d (keyed root=(%d, %d))",
+                    i + 1, self.n_replications, master, i,
+                )
+                engine = build_engine_from_preset(
+                    self.preset, seed=master, toggles=self.toggles,
+                    replication_index=i,
+                )
+            else:
+                rep_seed = self.base_seed + i
+                logger.info(
+                    "Ensemble replication %d/%d (seed=%d)",
+                    i + 1, self.n_replications, rep_seed,
+                )
 
-            engine = build_engine_from_preset(
-                self.preset, seed=rep_seed, toggles=self.toggles,
-            )
+                engine = build_engine_from_preset(
+                    self.preset, seed=rep_seed, toggles=self.toggles,
+                )
             metrics = engine.run(
                 duration=duration,
                 poi_id=poi_id,
