@@ -15,6 +15,7 @@ import numpy as np
 import simpy
 
 from faer_dev.core.enums import OperationalContext, TransportMode
+from faer_dev.core.rng import KeyedRNGRoot, RNGPurpose
 
 logger = logging.getLogger(__name__)
 
@@ -198,10 +199,15 @@ class TransportPool:
         env: simpy.Environment,
         config: TransportConfig,
         rng: Optional[np.random.Generator] = None,
+        keyed_rng: Optional["KeyedRNGRoot"] = None,
     ) -> None:
         self.env = env
         self.config = config
         self.rng = rng or np.random.default_rng()
+        # S2 0c-3: trip times are vehicle-mission draws (the batch
+        # coordinator may serve several patients per trip), so TRANSIT is
+        # keyed as a per-mode mission stream, not per casualty
+        self.keyed_rng = keyed_rng
 
         self._configured_capacity: dict[TransportMode, int] = {
             TransportMode.ROTARY: config.helicopters,
@@ -288,7 +294,12 @@ class TransportPool:
     def sample_trip_time(self, mode: TransportMode) -> float:
         """Sample round-trip time for transport mode (minimum 10 min)."""
         mean, std = self.config.get_round_trip_params(mode)
-        trip_time = self.rng.normal(mean, std)
+        if self.keyed_rng is not None:
+            trip_time = self.keyed_rng.draw(
+                f"transit:{mode.name}", RNGPurpose.TRANSIT
+            ).normal(mean, std)
+        else:
+            trip_time = self.rng.normal(mean, std)
         return max(10.0, trip_time)
 
     def get_queue_depth(self, mode: TransportMode) -> int:

@@ -39,12 +39,18 @@ class VitalsGenerator:
         triage: str,
         severity: float = 0.5,
         region: Optional[str] = None,
+        rng: Optional[np.random.Generator] = None,
     ) -> VitalSigns:
-        """Sample initial vital signs from triage-dependent baselines."""
+        """Sample initial vital signs from triage-dependent baselines.
+
+        ``rng`` is the keyed-mode hook (S2 slice 0c): the Generator for this
+        casualty's VITALS draw-event. Omitted = shared stream, byte-identical.
+        """
         baseline = self.data.get_vitals_baseline(triage)
+        gen = rng if rng is not None else self.rng
 
         def sample_vital(params: dict) -> int:
-            val = self.rng.normal(params["mean"], params["std"])
+            val = gen.normal(params["mean"], params["std"])
             return int(np.clip(val, params["min"], params["max"]))
 
         gcs = sample_vital(baseline["gcs"])

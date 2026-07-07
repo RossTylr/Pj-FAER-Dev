@@ -199,8 +199,14 @@ class ATMISTFormatter:
         from_facility: str,
         to_facility: str,
         handover_number: int = 1,
+        vitals_rng=None,
     ) -> ATMIST:
-        """Generate a single ATMIST handover report."""
+        """Generate a single ATMIST handover report.
+
+        ``vitals_rng`` is the keyed-mode hook (S2 slice 0c): the Generator
+        for this casualty's VITALS draw at this handover. Omitted = shared
+        stream, byte-identical.
+        """
         injury_time = casualty.get(
             "arrival_time", events[0]["time"] if events else 0
         )
@@ -209,7 +215,9 @@ class ATMISTFormatter:
         region = casualty.get("primary_region", "")
         mechanism = casualty.get("mechanism", "")
 
-        initial_vitals = self.vitals_gen.generate_initial(triage, severity, region)
+        initial_vitals = self.vitals_gen.generate_initial(
+            triage, severity, region, rng=vitals_rng
+        )
 
         had_definitive = any(
             "FST" in e.get("event", "") or "DCS" in e.get("event", "")

@@ -224,7 +224,8 @@ class PolyhybridEngine:
         # Transport pool
         self._transport_config = transport_config or get_transport_config(context)
         self.transport_pool = TransportPool(
-            env=self.env, config=self._transport_config, rng=self._rng
+            env=self.env, config=self._transport_config, rng=self._rng,
+            keyed_rng=self._keyed_rng,
         )
 
         # Arrival process (created at run time when POI is known)
@@ -488,6 +489,11 @@ class PolyhybridEngine:
             from_facility=from_facility,
             to_facility=to_facility,
             handover_number=handover_num,
+            vitals_rng=(
+                self._keyed_rng.draw(patient.id, RNGPurpose.VITALS)
+                if self._keyed_rng is not None
+                else None
+            ),
         )
         patient.metadata.setdefault("atmist_reports", []).append(
             report.to_handover_string()
@@ -1006,7 +1012,10 @@ class PolyhybridEngine:
                 yield self.env.timeout(travel_time)
                 # Vehicle returns asynchronously
                 self.env.process(
-                    self._vehicle_return(resource, req, mode, travel_time)
+                    self._vehicle_return(
+                        resource, req, mode, travel_time,
+                        casualty_uid=patient.id,
+                    )
                 )
 
             self._log_event(
@@ -1140,7 +1149,12 @@ class PolyhybridEngine:
                 base_time = self.treatment_times.get(
                     facility.role, {}
                 ).get(triage_key, 30)
-                treatment_time = self._rng.exponential(base_time)
+                if self._keyed_rng is not None:
+                    treatment_time = self._keyed_rng.draw(
+                        patient.id, RNGPurpose.TREATMENT
+                    ).exponential(base_time)
+                else:
+                    treatment_time = self._rng.exponential(base_time)
                 treatment_time *= patient.treatment_time_modifier
 
                 yield self.env.timeout(treatment_time)
@@ -1184,7 +1198,12 @@ class PolyhybridEngine:
             base_time = self.treatment_times.get(
                 facility.role, {}
             ).get(triage_key, 30)
-            treatment_time = self._rng.exponential(base_time)
+            if self._keyed_rng is not None:
+                treatment_time = self._keyed_rng.draw(
+                    patient.id, RNGPurpose.TREATMENT
+                ).exponential(base_time)
+            else:
+                treatment_time = self._rng.exponential(base_time)
             treatment_time *= patient.treatment_time_modifier
 
             yield self.env.timeout(treatment_time)
@@ -1236,7 +1255,12 @@ class PolyhybridEngine:
             base_time = self.treatment_times.get(
                 role, {}
             ).get(triage_key, 30)
-            treatment_time = self._rng.exponential(base_time)
+            if self._keyed_rng is not None:
+                treatment_time = self._keyed_rng.draw(
+                    patient.id, RNGPurpose.TREATMENT
+                ).exponential(base_time)
+            else:
+                treatment_time = self._rng.exponential(base_time)
             treatment_time *= patient.treatment_time_modifier
 
             yield self.env.timeout(treatment_time)
@@ -1258,6 +1282,7 @@ class PolyhybridEngine:
         req,
         mode,
         outbound_time: float,
+        casualty_uid: Optional[str] = None,
     ):  # type: ignore[return]  # SimPy generator
         """SimPy process: vehicle returns to staging area after patient drop-off.
 
@@ -1270,10 +1295,19 @@ class PolyhybridEngine:
         """
         turnaround = self.transport_pool.config.get_turnaround(mode)
 
-        # Return trip ≈ outbound time with some variance
-        return_time = max(
-            10.0, self._rng.normal(outbound_time, outbound_time * 0.2)
-        )
+        # Return trip ≈ outbound time with some variance. Keyed: the return
+        # is 1:1 with a patient delivery, so it keys per casualty leg.
+        if self._keyed_rng is not None and casualty_uid is not None:
+            return_time = max(
+                10.0,
+                self._keyed_rng.draw(
+                    casualty_uid, RNGPurpose.VEHICLE_RETURN
+                ).normal(outbound_time, outbound_time * 0.2),
+            )
+        else:
+            return_time = max(
+                10.0, self._rng.normal(outbound_time, outbound_time * 0.2)
+            )
         # Total unavailable = return flight + turnaround (load/unload/refuel)
         total_downtime = return_time + turnaround
         yield self.env.timeout(total_downtime)
@@ -1296,6 +1330,7 @@ class PolyhybridEngine:
             rng=self._rng,
             on_arrival=self._handle_arrival,
             on_mascal=self._handle_mascal,
+            keyed_rng=self._keyed_rng,
         )
         self.arrival_process.start(max_arrivals=max_arrivals)
         # Yield forever — ArrivalProcess manages its own SimPy processes
@@ -1341,6 +1376,7 @@ class PolyhybridEngine:
                 rng=self._rng,
                 on_arrival=self._handle_arrival,
                 on_mascal=self._handle_mascal,
+                keyed_rng=self._keyed_rng,
             )
             self.arrival_process.start(max_arrivals=max_patients)
             self._arrivals_started = True

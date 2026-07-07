@@ -61,3 +61,24 @@ casualty is now field-identical across doctrines, and the surviving divergence i
 counts differ from shared mode (38/40 vs 31/30) because identity draws no longer consume
 the shared stream — expected mid-strangler behaviour; shared mode itself is bit-stable
 (134 green at default).
+
+## 0c-3 — lazy + system-axis keyed (this commit)
+
+Keyed: TREATMENT `(casualty_uid, episode n)` at all three engine sites ·
+VEHICLE_RETURN `(casualty_uid, leg n)` (uid passed into `_vehicle_return`) · TRANSIT as
+per-mode vehicle-mission stream `transit:<mode>` (census correction above) · VITALS at
+ATMIST handovers `(casualty_uid, handover n)` · system axis: ARRIVALS `(stream, n)`,
+MASCAL_GAP / MASCAL_SIZE / MASCAL_OFFSETS `(stream, event n)`, the offsets array one
+keyed draw-event per cluster.
+
+**I-2 green witness (keyed A vs C, protocol run):**
+
+```
+1. ARRIVAL events byte-identical: True (A=56, C=56)
+2. roster hash identical: True (7e1beff6e110756f… both)
+3. per-casualty attribute equality (56 shared ids): True
+I-2 VERDICT: GREEN
+```
+
+Shared mode: 134 green, byte-stable. The keyed arrival sequence (56 in the 24 h window)
+is its own universe — the golden re-bless happens once, at 0e, by design.

@@ -16,6 +16,7 @@ import numpy as np
 import simpy
 
 from faer_dev.core.enums import OperationalContext
+from faer_dev.core.rng import KeyedRNGRoot, RNGPurpose
 
 logger = logging.getLogger(__name__)
 
@@ -106,10 +107,14 @@ class ArrivalProcess:
         rng: Optional[np.random.Generator] = None,
         on_arrival: Optional[Callable[[ArrivalRecord], None]] = None,
         on_mascal: Optional[Callable[[MASCALEvent], None]] = None,
+        keyed_rng: Optional[KeyedRNGRoot] = None,
     ) -> None:
         self.env = env
         self.config = config
         self.rng = rng or np.random.default_rng()
+        # S2 0c-3: system-axis keyed streams — arrivals draw from
+        # (stream, occurrence) keys so no journey draw can shift them
+        self.keyed_rng = keyed_rng
         self.on_arrival = on_arrival
         self.on_mascal = on_mascal
 
@@ -143,9 +148,14 @@ class ArrivalProcess:
             return
 
         while self._can_emit():
-            inter_arrival = self.rng.exponential(
-                1.0 / self.config.base_rate_per_minute
-            )
+            if self.keyed_rng is not None:
+                inter_arrival = self.keyed_rng.system_draw(
+                    RNGPurpose.ARRIVALS
+                ).exponential(1.0 / self.config.base_rate_per_minute)
+            else:
+                inter_arrival = self.rng.exponential(
+                    1.0 / self.config.base_rate_per_minute
+                )
             yield self.env.timeout(inter_arrival)
 
             if not self._can_emit():
@@ -160,9 +170,14 @@ class ArrivalProcess:
             return
 
         while self._can_emit():
-            inter_mascal = self.rng.exponential(
-                1.0 / self.config.mascal_rate_per_minute
-            )
+            if self.keyed_rng is not None:
+                inter_mascal = self.keyed_rng.system_draw(
+                    RNGPurpose.MASCAL_GAP
+                ).exponential(1.0 / self.config.mascal_rate_per_minute)
+            else:
+                inter_mascal = self.rng.exponential(
+                    1.0 / self.config.mascal_rate_per_minute
+                )
             yield self.env.timeout(inter_mascal)
 
             if not self._can_emit():
@@ -178,11 +193,18 @@ class ArrivalProcess:
 
     def _generate_mascal_event(self) -> MASCALEvent:
         """Generate a single MASCAL event."""
-        size = int(
-            self.rng.normal(
-                self.config.mascal_size_mean, self.config.mascal_size_std
+        if self.keyed_rng is not None:
+            size = int(
+                self.keyed_rng.system_draw(RNGPurpose.MASCAL_SIZE).normal(
+                    self.config.mascal_size_mean, self.config.mascal_size_std
+                )
             )
-        )
+        else:
+            size = int(
+                self.rng.normal(
+                    self.config.mascal_size_mean, self.config.mascal_size_std
+                )
+            )
         size = max(
             self.config.mascal_size_min,
             min(self.config.mascal_size_max, size),
@@ -198,7 +220,14 @@ class ArrivalProcess:
         """Generate casualties for a MASCAL cluster."""
         mascal_id = self._mascal_counter
 
-        offsets = self.rng.uniform(0, mascal.duration, size=mascal.size)
+        if self.keyed_rng is not None:
+            # One keyed draw-event per cluster: the offsets array is a
+            # single logical draw (occurrence = MASCAL event n)
+            offsets = self.keyed_rng.system_draw(
+                RNGPurpose.MASCAL_OFFSETS
+            ).uniform(0, mascal.duration, size=mascal.size)
+        else:
+            offsets = self.rng.uniform(0, mascal.duration, size=mascal.size)
         offsets.sort()
 
         current_offset = 0.0
