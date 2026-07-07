@@ -11,8 +11,11 @@ Usage:
 
 from __future__ import annotations
 
+from typing import Callable, Optional
+
 import numpy as np
 
+from faer_dev.core.rng import RNGPurpose
 from faer_dev.data.injury_loader import InjuryDataLoader
 
 
@@ -40,40 +43,59 @@ class DataDrivenInjurySampler:
         self.mechanism_dist = injury_data.get_mechanism_distribution(context)
         self.alpha, self.beta_param = injury_data.get_severity_params(context)
 
-    def sample(self) -> dict:
+    def sample(
+        self,
+        draws: Optional[Callable[[RNGPurpose], np.random.Generator]] = None,
+    ) -> dict:
         """Sample a single injury profile.
+
+        ``draws`` is the keyed-mode hook (S2 slice 0c): purpose -> Generator
+        for this casualty. When omitted, every purpose resolves to the
+        shared stream ``self.rng`` — legacy behaviour, byte-identical.
 
         Returns:
             dict with keys: mechanism, primary_region, secondary_regions,
             severity, is_polytrauma, is_surgical_region.
         """
+        g = draws if draws is not None else (lambda purpose: self.rng)
+
         # Sample mechanism
         mechs = list(self.mechanism_dist.keys())
         probs = np.array([self.mechanism_dist[m] for m in mechs])
-        mechanism = mechs[self.rng.choice(len(mechs), p=probs)]
+        mechanism = mechs[g(RNGPurpose.MECHANISM).choice(len(mechs), p=probs)]
 
         # Sample primary region
         region_dist = self.data.get_region_distribution(mechanism)
         regions = list(region_dist.keys())
         reg_probs = np.array([region_dist[r] for r in regions])
-        primary_region = regions[self.rng.choice(len(regions), p=reg_probs)]
+        primary_region = regions[
+            g(RNGPurpose.PRIMARY_REGION).choice(len(regions), p=reg_probs)
+        ]
 
         # Sample severity (Beta distribution, modified by mechanism)
-        base_severity = float(self.rng.beta(self.alpha, self.beta_param))
+        base_severity = float(
+            g(RNGPurpose.SEVERITY).beta(self.alpha, self.beta_param)
+        )
         mech_mods = self.data.get_mechanism_modifiers(mechanism)
         severity = min(1.0, base_severity * mech_mods["severity"])
 
         # Polytrauma
         poly_prob = self.data.get_polytrauma_probability(mechanism)
-        is_polytrauma = bool(self.rng.random() < poly_prob)
+        is_polytrauma = bool(g(RNGPurpose.POLYTRAUMA).random() < poly_prob)
 
         # Secondary regions
         secondary_regions: list[str] = []
         if is_polytrauma:
             available = [r for r in regions if r != primary_region]
-            n = int(self.rng.integers(1, min(4, len(available) + 1)))
+            n = int(
+                g(RNGPurpose.SECONDARY_COUNT).integers(
+                    1, min(4, len(available) + 1)
+                )
+            )
             secondary_regions = list(
-                self.rng.choice(available, size=n, replace=False)
+                g(RNGPurpose.SECONDARY_REGIONS).choice(
+                    available, size=n, replace=False
+                )
             )
 
         return {

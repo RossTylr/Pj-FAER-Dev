@@ -188,6 +188,7 @@ class PolyhybridEngine:
                 mode="inverted",
                 context=context,
                 rng=self._rng,
+                keyed_rng=self._keyed_rng,
                 injury_sampler=self._injury_sampler,
                 triage_bt=self._triage_bt,
                 blackboard=self._blackboard,
@@ -197,7 +198,14 @@ class PolyhybridEngine:
                 mode=self.toggles.factory_mode,
                 context=context,
                 rng=self._rng,
+                keyed_rng=self._keyed_rng,
             )
+
+        # S2 0c-2: eager identity roster (flag-gated; rows appended at
+        # creation, trace-neutral — consumes no events, emits none)
+        self._roster: Optional[List[Dict[str, Any]]] = (
+            [] if self.toggles.enable_roster else None
+        )
 
         # S1.1: facility context writer (direct-call, three write-sites).
         # Shares py_trees' process-global storage with the inverted factory
@@ -612,10 +620,38 @@ class PolyhybridEngine:
             self._log_event_raw("MASCAL_DEACTIVATE", record.time, {})
 
         patient = self.casualty_factory.create(record)
+        if self._keyed_rng is not None:
+            # Sellke frailty threshold: eager identity draw, frozen to the
+            # roster. Exp(1) races the cumulative deterioration hazard when
+            # the Sellke swap lands; the deterioration mechanism itself is
+            # untouched at S2 (kickoff rule) — the threshold is inert state.
+            patient.metadata["frailty_threshold"] = float(
+                self._keyed_rng.draw(
+                    patient.id, RNGPurpose.FRAILTY_THRESHOLD
+                ).exponential(1.0)
+            )
+        if self._roster is not None:
+            from faer_dev.data.roster import roster_row
+            self._roster.append(roster_row(patient, record.time))
         # Find the POI facility to start the journey
         poi_id = self._poi_id
         if poi_id:
             self.env.process(self._patient_journey(patient, poi_id))
+
+    @property
+    def roster(self) -> Optional[List[Dict[str, Any]]]:
+        """Eager identity roster rows (None unless enable_roster)."""
+        return self._roster
+
+    def write_roster(self, path: str) -> None:
+        """Write the roster artefact to parquet (requires the roster extra)."""
+        if self._roster is None:
+            raise ValueError(
+                "Roster recording is off — construct with "
+                "SimulationToggles(enable_roster=True)."
+            )
+        from faer_dev.data.roster import write_roster_parquet
+        write_roster_parquet(self._roster, path)
 
     def _handle_mascal(self, mascal: MASCALEvent) -> None:
         """Record a MASCAL event."""

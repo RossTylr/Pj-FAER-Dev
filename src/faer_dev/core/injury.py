@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -13,6 +13,7 @@ from faer_dev.core.enums import (
     OperationalContext,
     TriageCategory,
 )
+from faer_dev.core.rng import RNGPurpose
 
 
 @dataclass
@@ -164,12 +165,28 @@ class InjuryProfileSampler:
             context, MECHANISM_PROBABILITIES[OperationalContext.COIN]
         )
 
-    def sample(self, triage: TriageCategory) -> InjuryProfile:
-        """Sample a complete injury profile for the given triage category."""
-        mechanism = self._sample_mechanism()
-        primary_region = self._sample_region()
-        secondary_regions = self._sample_secondary_regions(triage, primary_region)
-        severity = self._sample_severity(triage)
+    def sample(
+        self,
+        triage: TriageCategory,
+        draws: Optional[Callable[[RNGPurpose], np.random.Generator]] = None,
+    ) -> InjuryProfile:
+        """Sample a complete injury profile for the given triage category.
+
+        ``draws`` is the keyed-mode hook (S2 slice 0c): a callable mapping an
+        RNGPurpose to the Generator for this casualty's draw of that purpose.
+        When omitted, every purpose resolves to the shared stream ``self.rng``
+        — the legacy behaviour, byte-identical.
+        """
+        g = draws if draws is not None else (lambda purpose: self.rng)
+        mechanism = self._sample_mechanism(g(RNGPurpose.MECHANISM))
+        primary_region = self._sample_region(g(RNGPurpose.PRIMARY_REGION))
+        secondary_regions = self._sample_secondary_regions(
+            triage,
+            primary_region,
+            g(RNGPurpose.SECONDARY_COUNT),
+            g(RNGPurpose.SECONDARY_REGIONS),
+        )
+        severity = self._sample_severity(triage, g(RNGPurpose.SEVERITY))
 
         return InjuryProfile(
             mechanism=mechanism,
@@ -178,28 +195,35 @@ class InjuryProfileSampler:
             severity_score=severity,
         )
 
-    def _sample_mechanism(self) -> InjuryMechanism:
+    def _sample_mechanism(self, rng: np.random.Generator) -> InjuryMechanism:
         """Sample injury mechanism based on context."""
         mechanisms = list(self.mechanism_probs.keys())
         probs = [self.mechanism_probs[m] for m in mechanisms]
-        idx = self.rng.choice(len(mechanisms), p=probs)
+        idx = rng.choice(len(mechanisms), p=probs)
         return mechanisms[idx]
 
-    def _sample_region(self) -> AnatomicalRegion:
+    def _sample_region(self, rng: np.random.Generator) -> AnatomicalRegion:
         """Sample primary anatomical region."""
         regions = list(REGION_PROBABILITIES.keys())
         probs = [REGION_PROBABILITIES[r] for r in regions]
-        idx = self.rng.choice(len(regions), p=probs)
+        idx = rng.choice(len(regions), p=probs)
         return regions[idx]
 
     def _sample_secondary_regions(
         self,
         triage: TriageCategory,
         primary: AnatomicalRegion,
+        count_rng: np.random.Generator,
+        regions_rng: np.random.Generator,
     ) -> list[AnatomicalRegion]:
-        """Sample secondary regions based on triage severity."""
+        """Sample secondary regions based on triage severity.
+
+        The region set is one logical draw-event (keyed as an array draw);
+        the count is its own purpose so a doctrine-varying count cannot
+        shift the set's stream position.
+        """
         min_count, max_count = SECONDARY_REGION_COUNTS.get(triage, (0, 1))
-        n_secondary = int(self.rng.integers(min_count, max_count))
+        n_secondary = int(count_rng.integers(min_count, max_count))
 
         if n_secondary == 0:
             return []
@@ -209,14 +233,16 @@ class InjuryProfileSampler:
         probs = probs / probs.sum()
 
         n_to_sample = min(n_secondary, len(available))
-        indices = self.rng.choice(
+        indices = regions_rng.choice(
             len(available), size=n_to_sample, replace=False, p=probs,
         )
 
         return [available[i] for i in indices]
 
-    def _sample_severity(self, triage: TriageCategory) -> float:
+    def _sample_severity(
+        self, triage: TriageCategory, rng: np.random.Generator
+    ) -> float:
         """Sample severity score based on triage."""
         base = SEVERITY_BASE.get(triage, 0.5)
-        severity = self.rng.normal(base, 0.10)
+        severity = rng.normal(base, 0.10)
         return float(np.clip(severity, 0.0, 1.0))

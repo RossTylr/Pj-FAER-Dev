@@ -19,6 +19,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Roster parquet artefact (S2 0c-2) — POLYBIUS input interface; ruling:
+# parquet is an optional extra, the engine never hard-depends on pyarrow
+roster = [
+    "pyarrow>=14",
+]
 dev = [
     "jupyter>=1.0",
     "jupyterlab>=4.0",

@@ -22,6 +22,7 @@ from faer_dev.core.enums import (
     TriageCategory,
 )
 from faer_dev.core.injury import InjuryProfile, InjuryProfileSampler
+from faer_dev.core.rng import KeyedRNGRoot, RNGPurpose
 from faer_dev.core.schemas import Casualty
 from faer_dev.core.triage import MASCALTriageShift, get_mascal_shift
 from faer_dev.simulation.arrivals import ArrivalRecord
@@ -43,10 +44,15 @@ class LegacyCasualtyFactory:
         context: OperationalContext,
         rng: Optional[np.random.Generator] = None,
         id_prefix: str = "",
+        keyed_rng: Optional[KeyedRNGRoot] = None,
     ) -> None:
         self.context = context
         self.rng = rng or np.random.default_rng()
         self.id_prefix = id_prefix
+        # S2 0c-2: keyed identity draws — when set, every eager attribute
+        # draw is keyed (casualty_uid, purpose) instead of consuming the
+        # shared stream
+        self.keyed_rng = keyed_rng
 
         self.triage_shift = get_mascal_shift(context)
         self.injury_sampler = InjuryProfileSampler(context, self.rng)
@@ -70,12 +76,23 @@ class LegacyCasualtyFactory:
 
         if override_triage is not None:
             triage = override_triage
+        elif self.keyed_rng is not None:
+            triage = self.triage_shift.sample(
+                is_mascal=arrival.is_mascal,
+                rng=self.keyed_rng.draw(casualty_id, RNGPurpose.TRIAGE),
+            )
         else:
             triage = self.triage_shift.sample(
                 is_mascal=arrival.is_mascal, rng=self.rng
             )
 
-        injury = self.injury_sampler.sample(triage)
+        if self.keyed_rng is not None:
+            keyed = self.keyed_rng
+            injury = self.injury_sampler.sample(
+                triage, draws=lambda p: keyed.draw(casualty_id, p)
+            )
+        else:
+            injury = self.injury_sampler.sample(triage)
         priority = self._calculate_priority(triage, injury)
         treatment_modifier = injury.get_treatment_time_modifier()
 
@@ -186,6 +203,7 @@ class InvertedCasualtyFactory:
         rng: Optional[np.random.Generator] = None,
         id_prefix: str = "",
         source_id: str = "default",
+        keyed_rng: Optional[KeyedRNGRoot] = None,
     ):
         self.context_name = context_name
         self.injury_sampler = injury_sampler
@@ -194,6 +212,7 @@ class InvertedCasualtyFactory:
         self.rng = rng or np.random.default_rng()
         self.id_prefix = id_prefix
         self.source_id = source_id
+        self.keyed_rng = keyed_rng  # S2 0c-2: keyed identity draws
         self._counter = 0
 
     @property
@@ -210,7 +229,13 @@ class InvertedCasualtyFactory:
         casualty_id = self._generate_id()
 
         # 1. Sample injury
-        profile = self.injury_sampler.sample()
+        if self.keyed_rng is not None:
+            keyed = self.keyed_rng
+            profile = self.injury_sampler.sample(
+                draws=lambda p: keyed.draw(casualty_id, p)
+            )
+        else:
+            profile = self.injury_sampler.sample()
 
         # 2. Populate blackboard
         self.bb.reset_patient_context()
@@ -285,6 +310,7 @@ def create_factory(
     mode: str = "legacy",
     context: Optional[OperationalContext] = None,
     rng: Optional[np.random.Generator] = None,
+    keyed_rng: Optional[KeyedRNGRoot] = None,
     **kwargs: Any,
 ) -> LegacyCasualtyFactory | InvertedCasualtyFactory:
     """Create the appropriate factory based on mode.
@@ -293,6 +319,7 @@ def create_factory(
         mode: "legacy" (Phase 2) or "inverted" (Phase 3).
         context: Operational context enum.
         rng: NumPy random generator.
+        keyed_rng: Keyed-draw root (rng_mode="keyed"); None = shared stream.
         **kwargs: Additional args passed to the factory constructor.
             For "inverted": injury_sampler, triage_bt, blackboard required.
     """
@@ -301,6 +328,7 @@ def create_factory(
     if mode == "legacy":
         return LegacyCasualtyFactory(
             context=ctx, rng=rng, id_prefix=kwargs.get("id_prefix", ""),
+            keyed_rng=keyed_rng,
         )
 
     if mode == "inverted":
@@ -318,6 +346,7 @@ def create_factory(
             rng=rng,
             id_prefix=kwargs.get("id_prefix", ""),
             source_id=kwargs.get("source_id", "default"),
+            keyed_rng=keyed_rng,
         )
 
     raise ValueError(f"Unknown factory mode: {mode}")

@@ -1,0 +1,63 @@
+# S2_BUILD_LEDGER — witnesses, minutes and rulings for BUILD_S2 slice 0
+
+*Running record for the S2 gate. Baseline: answers commit `1773db7` atop `4b28bad`;
+PREREG_VR1 committed at `b14eddc` BEFORE any keyed comparison was viewed; 134 green.*
+
+## Rulings received at kickoff (2026-07-07)
+
+| Ruling | Status |
+|---|---|
+| Roster parquet dependency | **optional-extra** — `pip install faer-dev[roster]` (pyproject `[project.optional-dependencies].roster`) |
+| Empty/absent `facilities` semantics | **NOT YET** — slice 1 STOPs and reports |
+| `triage_distribution` wire-or-delete | **NOT YET** — slice 1 STOPs and reports |
+
+Standing kickoff rules honoured: deterioration mechanism untouched (frailty threshold is
+pre-drawn inert state only) · `.spawn()` forbidden on the identity axis · arrays keyed per
+logical draw-event · `MVP_ACCEPTANCE.md` untouched · shared-mode byte-stream frozen from
+0c-1, policed by O1 + the equivalence suites at every commit.
+
+## Census corrections discovered while building (answers file stands; noted here)
+
+- VITALS is LAZY, not eager: draws happen per ATMIST handover
+  (`core/atmist.py:212` → `vitals.py:47`), occurrence = handover n.
+- The only production consumer of `transport.py:291` trip-time normals is the
+  BatchCoordinator (`transport.py:241`) — a vehicle-mission draw that may serve several
+  patients — plus the standalone `transport_patient` helper (`transport.py:476`, unused by
+  the engine). TRANSIT is therefore keyed as a per-mode vehicle-mission stream
+  `(stream="transit:<mode>", mission n)`, not per-casualty. VEHICLE_RETURN
+  (`engine.py:962→1208`) is 1:1 with a patient delivery and keys per casualty.
+
+## 0c-1 — keyed core + plumbing (`2996aa5`)
+
+`RNGPurpose` closed enum · `KeyedRNGRoot` (Philox; 256-bit counter encodes
+`(0, occurrence, purpose, entity-hash)`; root entropy `(master_seed, replication_index)`)
+· `rng_mode: shared|keyed` toggle (default shared) · `replication_index` plumbed
+`ensemble → builder → engine` · EnsembleBuilder keyed branch gives `patient_seed` its
+dual-seed meaning (master of the keyed root; shared-mode `base_seed + i` untouched).
+Verified: 134 green, O1 identical, keyed-core semantics smoke (same key reproduces;
+entity/purpose/replication decorrelate).
+
+## 0c-2 — eager identity draws + roster (this commit)
+
+Keyed at creation: TRIAGE · MECHANISM · PRIMARY_REGION · SECONDARY_COUNT ·
+SECONDARY_REGIONS (one array draw-event) · SEVERITY · POLYTRAUMA (inverted path) ·
+FRAILTY_THRESHOLD (Sellke Exp(1), frozen to `metadata["frailty_threshold"]`, mechanism
+untouched). Roster behind `enable_roster` (rows at `_handle_arrival`; digest reuses the
+F0.1 canonical dump; parquet writer = optional extra).
+
+**I-2 red witness (pre-commit, keyed A vs C, protocol run):**
+
+```
+1. ARRIVAL events byte-identical: False (A=38, C=40)
+   first divergent ARRIVAL index 5 (CAS-0006): fields ['sim_time']
+2. roster hash identical: False (spawn_time + 2 C-only ids)
+3. per-casualty attribute equality (38 shared ids): True
+I-2 VERDICT: RED — failing: ARRIVAL bytes, roster hash
+```
+
+Reading: the Q0 defect (ATTRIBUTE CONTAMINATION) is REPAIRED at 0c-2 — every shared
+casualty is now field-identical across doctrines, and the surviving divergence is
+`sim_time`-only (the un-keyed system axis), which 0c-3 removes. Keyed-mode arrival
+counts differ from shared mode (38/40 vs 31/30) because identity draws no longer consume
+the shared stream — expected mid-strangler behaviour; shared mode itself is bit-stable
+(134 green at default).
