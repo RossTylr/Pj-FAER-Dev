@@ -54,3 +54,30 @@ regardless of outcome.
 
 > A fixed seed buys reproducibility, not comparability — seed=42 reproduces a
 > contaminated comparison perfectly; comparability is a designed property.
+
+---
+
+## AMENDMENT (2026-07-07, gate-directed, declared BEFORE any VR-1 result was viewed)
+
+**Secondary contrast — the RESOURCE pair**, same design discipline as the registered
+routing pair:
+
+- **Arms:** IRON BRIDGE baseline vs IRON BRIDGE with **+4 beds at R1-ALPHA** (8 → 12),
+  applied as a dict edit via `apply_scenario_overrides({"facilities.R1-ALPHA.beds": 12})`.
+  R1-ALPHA is the first R1-role facility in preset insertion order; named here to remove
+  the ambiguity before results exist.
+- **Toggles:** BOTH arms run capability-ON (`enable_extracted_routing`,
+  `enable_graph_routing`, `enable_capability_routing`) per GM-3 — the contrast is
+  beds-only, doctrine held fixed.
+- **Scheme:** same n = 20, same paired (shared `(master_seed=42, replication_index i)`
+  roots, reps 0–19 both arms) / unpaired (baseline reps 0–19, variant reps 100–119,
+  disjoint roots) structure, same metrics, same reporting rules as the routing pair.
+- **Rationale on record:** the resource pair is the PoC comparison shape and the
+  sharpest arbiter of the transit-keying provisional (vehicle-mission streams are
+  keyed per-mode, not per-casualty; a bed change perturbs dispatch interleaving without
+  touching routing policy).
+- **Reporting:** BOTH golden-hour operationalisations for BOTH contrasts —
+  (i) ITT: first TREATMENT_START within 60 min of ARRIVAL, denominator = all arrivals;
+  (ii) the view-based variant matching `analytics/views.py` GoldenHourView as
+  implemented (DISPOSITION within 60 min of ARRIVAL) — plus mortality. Exact fractions
+  throughout; no post-hoc selection between variants.
