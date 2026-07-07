@@ -113,8 +113,12 @@ def hold_promotion_run():
     T1_SURGICAL rung of the deterioration ladder whatever the
     multiplier; treatment_time_modifier 2.0 stretches the bottleneck's
     no-gap stretch past the ceiling; hold timeout overridden to 45 h so
-    promoted casualties release rather than time out. Probe at seed=42:
-    45 promotions, 21 post-promotion treatments.
+    promoted casualties release rather than time out. Probe at seed=42
+    (shared stream): 45 promotions, 21 post-promotion treatments.
+    Recipe re-tune at S2 0e (keyed default): cohort 60 -> 120 — the keyed
+    realisation drained the 60-patient backlog before any hold reached
+    the 15 h ceiling; a deeper backlog restores starvation (probe at
+    seed=42 keyed: 62 promotions). Assertions untouched.
     """
     engine = build_engine_from_dict(
         _hold_promotion_scenario(), toggles=_toggles(ccp=True), seed=42,
@@ -124,7 +128,7 @@ def hold_promotion_run():
     )
     engine._hold_timeout_override = 2700.0
 
-    engine.run(duration=0.0, max_patients=60)
+    engine.run(duration=0.0, max_patients=120)
     engine.step(100 * 60.0)  # 100 h sim: window, marathon holds, releases
 
     log = _canonical(engine)

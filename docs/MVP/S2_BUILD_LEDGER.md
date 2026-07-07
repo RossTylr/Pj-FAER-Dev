@@ -105,3 +105,61 @@ poisoned purpose=SEVERITY: 51/56 casualties severity-divergent across A/C
 ```
 
 Suite: **141 passed** (134 + 7). Shared default untouched.
+
+## 0e — default flip + re-bless + THAW (this commit)
+
+`rng_mode` default → **keyed**. ONE sanctioned `--regen-golden`
+(artefact: `docs/MVP/S2_0E_GOLDEN_REGEN.md`; full byte diff in this commit).
+Suite fallout at the flip was exactly the Q7 prediction: O1 (by design) + the
+`hold_promotion_run` tuned recipe (cohort 60 → 120, one-line justification in the
+fixture docstring, assertions untouched). Every property-safe test passed UNMODIFIED.
+**141 passed** at the keyed default.
+
+**THAW MINUTE (2026-07-07).** I-2 re-run at PLAIN DEFAULT toggles (no explicit
+`rng_mode`), protocol run, A vs C:
+
+```
+arrivals byte-identical=True (56=56), roster hash identical=True,
+per-casualty equality=True
+THAW: GREEN — COMPARISON LANE REOPENS
+```
+
+The RNG_DIAGNOSTIC.md freeze condition ("no paired A-vs-C claims until dual-stream
+separation lands") is discharged: paired A-vs-C comparisons are quotable again in keyed
+mode, subject to the PREREG_VR1 discipline for variance claims.
+
+## Rule-3 LOC accounting (intrinsic zone: src/faer_dev/simulation/)
+
+| Commit | Cumulative added / removed vs baseline |
+|---|---|
+| 0c-1 `2996aa5` | 11 / 0 |
+| 0c-2 `cc55fcf` | 107 / 9 |
+| 0c-3 `a062487` | **204 / 30** (crossed here) |
+| 0d `6b2b4ea` | 204 / 30 (tests only) |
+| 0e (this commit) | 204 / 30 — **zero intrinsic lines** (toggle default lives in `decisions/mode.py`; golden and test are excluded classes) |
+
+Raw added **204** (code-only, excluding blank/comment-only lines: **176**) vs the
+kickoff's ~160 drift ceiling → **materially beyond → STOP fires**. Per the Rule-3
+precedence clause (parity and toggle-equivalence outrank the tripwire; never break them
+to hit a line count), the vertical slice was completed and every commit carries its
+parity/byte-freeze witnesses; the overage is comment-inclusive strangler `if/else`
+duplication at 10 draw sites, kept deliberately so legacy lines stayed byte-verbatim.
+**The overage is a gate item for human review — no further intrinsic lines will be
+written this session.**
+
+## §5 Definition of Done — status at HALT
+
+| DoD item | Status |
+|---|---|
+| 0c: shared mode byte-untouched, 134 green | ☑ (134 green at every 0c commit; I-5 pin) |
+| 0d: I-1–I-5 green, poison red witnessed | ☑ (I-1–I-7 green; poison red in ledger + permanent via I-4) |
+| 0e: golden diff reviewed, re-baseline list justified line-by-line, property-safe unmodified | ☑ (artefact + this ledger; 141 green) |
+| THAW minuted: I-2 holds at keyed default | ☑ (minute above) |
+| Slice 1 landed; two human rulings recorded | ☐ **STOPPED — rulings NOT YET** (parquet ruling recorded; scenario_overrides/version stamp/guard family not started) |
+| Tails: prereg committed BEFORE any keyed comparison viewed | ☑ (`b14eddc`, before 0c-2's first keyed witness) |
+| Rule-4 conservation ×3 configs | ☑ at keyed default: conservation suites green (coin); killer + hold-promotion inline configs drain to conservation in their suites |
+| Intrinsic LOC actual vs declaration | ⚠ 204 raw / 176 code-only vs ~160 ceiling — **human gate item** |
+| Rule-8 addendum ratified or explicitly deferred | ☐ **DEFERRED** — text not authored (human paste or explicit delegation; not reached, STOP at slice-1) |
+
+Remaining tails NOT reached (stop at slice-1 per kickoff): mixed-caseload killer variant ·
+CURRENT/checker reconciliation · Rule-8 addendum text. PREREG_VR1 done (pulled forward).

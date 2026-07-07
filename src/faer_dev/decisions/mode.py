@@ -64,11 +64,11 @@ class SimulationToggles:
     # S1.1: facility context writer — engine pushes live facility state onto
     # the blackboard at three call-sites; contract-first, no consumer wired
     enable_facility_writer: bool = False
-    # S2 slice 0: RNG architecture — "shared" is the legacy single-stream
-    # path; "keyed" draws every stochastic value from a per-(entity, purpose,
-    # occurrence) Philox stream (dual-mode strangler; keyed becomes the
-    # default at 0e)
-    rng_mode: str = "shared"
+    # S2 slice 0: RNG architecture — "keyed" (default since 0e) draws every
+    # stochastic value from a per-(entity, purpose, occurrence) Philox
+    # stream; "shared" is the legacy single-stream path, retained behind the
+    # toggle for archaeology until a later retirement milestone
+    rng_mode: str = "keyed"
     # S2 slice 0c-2: record the eager identity roster at casualty creation
     # (POLYBIUS input-interface artefact; parquet writer is an optional extra)
     enable_roster: bool = False
