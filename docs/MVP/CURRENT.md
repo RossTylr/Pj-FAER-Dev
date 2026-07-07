@@ -1,36 +1,68 @@
 # CURRENT — FAER-MIL canonical state
-*Replaces the stale "Phase 2 Plug / NB44_yield_from_safety" version. Single source of phase truth (RAIE v3). Rev 2, 5 Jul 2026 — evidence-review updates folded in.*
 
-**HEAD:** dbc6119 (S1.1 build will advance this)
-**Phase:** MVP build. F0 complete (O1–O6; O7 = scheduled debt, GM-2). S1.2a/b complete + gated. S1.1 authorised — BUILD_S1_1.md v1.1 is the live instruction file; Rule-3 gate given at authorisation; §8 riders carry the comparison-lane diagnostics.
-**Evidence status:** comparison lane PROVISIONALLY FROZEN pending R1 arrival-anomaly classification (S1.1 rider) — no paired A-vs-C claims quotable. The S1.1 build itself is unaffected (writer consumes no RNG).
-**Standing reporting rule (adopted now, owned by 5a):** any quoted metric carries numerator/denominator, exact fractions, and an ITT variant alongside any conditional form; probe runs go through the F0.2 harness with the violation census attached — no ad-hoc evidence tables.
-**Next authorisation decision after S1.1 gate:** Step 2 (scenario_overrides · version stamp · guard family · empty-facilities ruling · triage_distribution wire-or-delete · stream-separation home if R1 verdict demands it).
-**Sequence (locked):** S1.1 → Step 2 → Step 3 (multi-POI + routing semantics) → Step 4 (PFC, own track, parallel) → 4b legacy retirement (GM-4) → Step 5a metric probes → Step 5 PoC.
+<!-- ACTIVE_PHASE: phase2 -->
+<!-- CURRENT_STEP: phase2/NB40_graph_routing -->
+<!-- The HTML markers above are the check_claude_md.py parity-drift anchors (moved here
+     from the deleted docs/CURRENT.md at the S2 close-out reconciliation). They track the
+     PHASE-2 NB extraction frontier, which is unchanged by the MVP build; MVP state is
+     the prose below. -->
 
-## DEFERRED REGISTER — every paused item, with intent (nothing here is forgotten; each has a trigger and vehicle)
+*Single source of phase truth (RAIE v3). **Rev 3**, 7 Jul 2026 — S2 close-out. Replaces
+Rev 2; the stale `docs/CURRENT.md` marker host is deleted and the checker reads this file.*
+
+**HEAD:** S2 close-out chain atop `4b28bad` — slice log in `docs/MVP/BUILD_S2.md`
+(as-built record). 153 tests green.
+**Phase:** MVP build. F0 complete (O7 = scheduled debt, GM-2). S1.1 complete. **Step 2
+COMPLETE** (slice 0 keyed-draw architecture + slice 1 config machinery + tails), gate-
+ratified 2026-07-07 with deviations D2/D4/D6 disclosed on the register below.
+**Evidence status:** **COMPARISON LANE OPEN** (thaw minuted at 0e; scoped wording is
+normative: *casualty identity and arrival streams are provably config-invariant;
+journey-draw pairing is per-purpose* — I-2 certifies identity + arrival invariance, not
+full-trajectory pairing). First quotable paired evidence: `docs/MVP/VR1_RESULTS.md`
+(routing-pair golden-hour ITT variance ratio 776; view/mortality paired perfectly;
+resource perturbation inert at tested parameters).
+**Standing reporting rule (5a):** any quoted metric carries numerator/denominator, exact
+fractions, and an ITT variant alongside any conditional form; probe runs go through the
+F0.2 harness with the violation census attached.
+**Next authorisation decision:** Step 3 (multi-POI + routing semantics) interrogation —
+carries the standing transit question (does re-plan-on-promotion move dispatch order
+enough to make the transit provisional bite?) and the D2 dual-root ruling.
+**Sequence (locked):** S1.1 ✓ → Step 2 ✓ → Step 3 → Step 4 (PFC, own track) → 4b legacy
+retirement (GM-4) → Step 5a metric probes → Step 5 PoC.
+
+## DEFERRED REGISTER — every paused item, with intent
 
 | Item | Intent | Trigger / vehicle |
 |---|---|---|
-| RNG dual-stream separation (CRN dual-seed; `patient_seed` currently inert on EnsembleBuilder) | BUILD — pull the planned separation forward; prerequisite for ANY paired comparison and EXP-IB-1000 | Before any paired claim; home Step 2 — IMMEDIATE priority if R1 verdict = STREAM CONTAMINATION |
-| Arrival-anomaly classification (31→30 at same seed) | DIAGNOSE — stream contamination vs definition drift vs other | S1.1 rider R1 → docs/MVP/RNG_DIAGNOSTIC.md |
-| Route-divergent equivalence fixture | ADD — lesson: route-coincident fixtures are blind to draw-count divergence between paths | Lands with stream separation |
-| Hold re-route on promotion (T-5-5b) + path-purity (T-5-7) | FIX — one routing-semantics decision (re-plan-on-Clock-1 + waypoint meaning), doctrine note grounded in FP-IRTB | Step-3 entry criteria; both characterisation tests INVERT to ==0 when landed; EX-6 possible vehicle |
-| O7 Erlang/Little oracle | BUILD — F0 debt, not descope (GM-2) | After Step 2 (uses scenario_overrides for single-node collapse); gate for Step 5 |
-| STRATEVAC starvation ruling + warm-up probe + violation/promotion census + conditional-metric standard (golden-hour denominator shift, −1 fencepost, uncaptioned DECEASED deltas) | DECIDE + PROBE before any sweep (GM-1/GM-5); make conditional metrics un-quotable by format, not caption | Step 5a pre-flight, owns the disposition-metric decision |
-| Mixed-caseload killer variant (surgical + non-surgical stream) | ADD — over-filtering control completing the killer/coin complementarity | Step-2 test tail, minutes-cheap |
-| Legacy walk retirement | RETIRE — R16a status: mitigated behind flag, open at defaults; trigger condition = nearer/lighter non-capable candidate; closing action = capability-default decision here. Also closes R1-ALPHA | Named milestone (GM-4): post-Step-3 gate, pre-Step-5 pre-flight; own mini instruction file |
-| Capability-ON interim rule | ENFORCE — every analysis/doctrine scenario sets capability (+extracted) until retirement (GM-3) | Step-2 guard/version-stamp family |
-| AC-1.4 byte-identical defect | AMEND with context — mechanical swap may not suffice (per-POI sub-RNG caveats) | Step-3 AC authoring; ledgered EXPERIMENT_LOG Entry 1 addendum |
-| PFC canonical model (inline 0.20× ladder vs orphaned pfc.py linear) | ADJUDICATE — modelling decision, not toggle flip; loser + inert `enable_extracted_pfc` retired | Step 4, own track; needs clinical judgement + literature tier |
-| Empty/absent `facilities` section semantics | DECIDE — valid-empty-world vs raise | Step 2 |
-| Rule-4 terminal-conservation scoping (undrained runs exercise census identity only) | RESOLVE — the open F0.3 scoping question; drained-fixture assertion is the terminal form | Step-2/O7 window |
-| Dept/r1 blackboard dict contracts | DEFINE at the consumer — #4's decision moment specifies shape and cadence | #4 build (first tick site; AC-W.3 re-gate fires) |
-| #58 weather keys | AUTHOR as own feature — writer alone insufficient (verdict) | When #58 scheduled |
-| FacilityLoadView intermediate overcount (views.py:65-66) | FIX via writer's per-facility dict as live source | #42 build |
-| `dept_fst_capacity` not loader-mappable (trees.py:341-348) · inverted triage tree built with defaults, loader ignored (engine.py:173) | FIX when the affected trees gain a tick site | #4 build |
-| Builder silent drops: or_tables/icu_beds/ventilators/has_lab | FIX before MMSL demand modelling (prerequisite, not backlog) | MMSL lane opening |
-| CROSSOVER_PROBES (commitment calendar · CP-SAT · Whittle · certificates · attribution ledger) | PARKED wholesale — unpark = crossover experiment | EXP-IB-1000 lane |
-| CLAUDE.md current-state note + verdict-authority pointer | HUMAN 5-min manual action — still open from original handover | Before next CC session ideally |
-| CURRENT.md dual-file reconciliation (this file is canonical; docs/CURRENT.md survives only as the `check_claude_md.py` marker host, STALE-flagged) | RESOLVE — either the `CURRENT_STEP` marker moves into this file or the checker's path/marker logic updates; one sole phase-state file (RAIE) | Step 2 |
+| **D2: `patient_seed` dual-root semantics** (FINAL-v1 ◆: identity-root override — "same arrival schedule, different people"; as-built pins the single root) | RULE then possibly BUILD — axis-separated roots vs accept single-root | Gate ruling; if build, Step-3 entry (intrinsic plumbing) |
+| **D4: unseeded-fallback lint + keyed fallback-raise** (FINAL-v1 ◆ I-6 LINT; Q1 latent hazards incl. triage.py:42-43) | BUILD — lint-as-test is zero-src-lines; the keyed RAISE touches intrinsic constructors | Candidate FIRST item of next build session |
+| **D6: roster enrichment** (derived decision fields + key-schema version stamp; FINAL v1 specified ARRIVAL-emission assembly) | EXTEND — as-built roster is identity-only at create() | When the POLYBIUS parquet schema is defined |
+| **Transit keying = per-mode mission stream** (provisional, VR-1 arbitrated SUFFICIENT: ratio 776, leak 3/200 in 1/20 reps) | REVISIT iff a transit-dependent estimand shows weak pairing | Step-3 routing-semantics interrogation (re-plan-on-promotion dispatch-order question) |
+| **VR-1 follow-up: binding resource perturbation** (the +4-bed arm proved inert — byte-exact pairing, dispatch sensitivity unexercised) | DESIGN a binding perturbation for the PoC comparison shape | Step-5 PoC design |
+| LOC counting-convention calibration | LESSON — declarations state the convention (raw vs code-only; dual-mode duplication included) up front | Every future Rule-3 declaration |
+| Hold re-route on promotion (T-5-5b) + path-purity (T-5-7) | FIX — one routing-semantics decision (re-plan-on-Clock-1 + waypoint meaning) | Step-3 entry criteria; both characterisation tests INVERT to ==0 when landed |
+| O7 Erlang/Little oracle | BUILD — F0 debt (GM-2); **now unblocked** (`scenario_overrides` landed) | Before Step 5; single-node collapse via overrides |
+| Rule-4 terminal-conservation scoping | RESOLVE — drained-fixture assertion is the terminal form | O7 window |
+| STRATEVAC starvation ruling + warm-up probe + violation/promotion census + conditional-metric standard | DECIDE + PROBE before any sweep (GM-1/GM-5) | Step 5a pre-flight |
+| Legacy walk retirement | RETIRE — R16a mitigated behind flag, open at defaults | GM-4: post-Step-3 gate, pre-Step-5; own mini instruction file |
+| Capability-ON interim rule (GM-3) | **ENFORCED** — `config/guards.py` + `EnsembleBuilder(analysis=True)`; retires with GM-4 | Standing until legacy retirement |
+| AC-1.4 byte-identical defect | AMEND with context (per-POI sub-RNG dissolves into the key tuple) | Step-3 AC authoring |
+| PFC canonical model — now THREE candidates: inline 0.20× ladder · pfc.py linear · **Sellke on the pre-drawn `frailty_threshold`** (reserved in every keyed roster) | ADJUDICATE — modelling decision; loser + inert `enable_extracted_pfc` retired | Step 4, own track; clinical judgement + literature tier |
+| Dept/r1 blackboard dict contracts | DEFINE at the consumer | #4 build (AC-W.3 re-gate fires) |
+| #58 weather keys | AUTHOR as own feature | When #58 scheduled |
+| FacilityLoadView intermediate overcount (views.py:65-66) | FIX via writer's per-facility dict | #42 build |
+| `dept_fst_capacity` not loader-mappable · inverted triage tree defaults (engine.py:173) | FIX when affected trees gain a tick site | #4 build |
+| Builder silent drops: or_tables/icu_beds/ventilators/has_lab | FIX before MMSL demand modelling | MMSL lane opening |
+| CROSSOVER_PROBES (commitment calendar · CP-SAT · Whittle · certificates · attribution ledger) | PARKED wholesale | EXP-IB-1000 lane |
 | maafi-protocol.skill three-way rubric polish | OPTIONAL, 10 min | Whenever |
+
+## CLOSED at S2 (moved out of the register, closure on record)
+
+RNG dual-stream separation → **superseded by the keyed-draw architecture** (S2 slice 0)
+· arrival-anomaly classification → RNG_DIAGNOSTIC verdict (b), repaired at 0c-3 ·
+route-divergent equivalence fixture → I-6 · mixed-caseload killer variant → T-5-8 ·
+empty-facilities semantics → **RAISE** (guards.py) · `triage_distribution` → **WIRED**
+(builder seam; O2 polices; I-5 re-pinned with discriminating check) · CURRENT.md
+dual-file reconciliation → this revision (docs/CURRENT.md deleted; checker re-pathed) ·
+Rule-8 addendum → ratified verbatim in CLAUDE.md · CLAUDE.md pointer updates → done at
+close-out · PREREG_VR1 → registered, amended pre-run, RUN (results committed).

@@ -1,61 +1,128 @@
 # BUILD_S2 — Step 2: keyed-draw RNG architecture (slice 0) + config machinery (slice 1)
-### Instruction file for Claude Code — FINAL v1, grounded in docs/MVP/S2_PREBUILD_ANSWERS.md (Q0–Q9, normative for all census facts). Authority: docs/MAAFI_VERDICT.md ▸ RNG ratification (5 Jul) as amended below ▸ this file.
-### RULE-3 DECLARATION: slice 0 is intrinsic-zone RNG surgery — behaviour-bearing estimate ≈120–160 intrinsic LOC across engine.py, factories, arrivals, transport, well above the ~30 tripwire. The human authorisation firing this file IS the mandatory Rule-3 gate. Precedence clause applies.
+### AS-BUILT RECORD (finalised 2026-07-07; replaces the FINAL v1 instruction file, preserved verbatim at `e9dd941`). Authority chain: docs/MAAFI/MAAFI_VERDICT.md ▸ RNG design ratification (5 Jul gate) ▸ FINAL v1 (`e9dd941`) ▸ this record. Witnesses and minutes: docs/MVP/S2_BUILD_LEDGER.md.
 
-**Baseline:** HEAD = the S2_PREBUILD_ANSWERS docs commit on top of 4b28bad (record SHA at step 0) · 134 green · comparison lane FROZEN.
-**Q0 verdict driving scope: BOTH** — attribute contamination (severity differs 26/30; divergence begins at CAS-0003, one casualty before timing k=3) and timing divergence. 0c is REPAIR of identity invariance.
+**Baseline:** `4b28bad` · 134 green · comparison lane FROZEN (RNG_DIAGNOSTIC.md: stream
+contamination, k=3). **Final state:** 153 green · keyed default · **comparison lane
+REOPENED** (thaw minuted) · first paired evidence produced (VR1_RESULTS.md).
 
-**Design of record (ratified 5 Jul, amended on Q-evidence — amendments marked ◆):**
-- Unit of synchronisation is the DRAW. Identity axis key `(casualty_uid, purpose, occurrence)`; system axis `(stream, occurrence)`. `.spawn()` FORBIDDEN on the identity axis (order-dependence).
-- Philox canonical; SeedSequence entropy-tuple fallback. Entropy layout: identity → `(identity_root, replication_index, 1, uid_int, purpose, occurrence)`; system → `(master_seed, replication_index, 0, stream_id, occurrence)`. `uid_int` = the factory counter n (arrival-order-stable post-fix, Q4).
-- **Seed semantics (◆ patient_seed made precise):** `master_seed` (default 42) = system root and identity fallback · `replication_index` (new param, default 0) enters BOTH axes · `patient_seed` (ensemble.py:151, currently inert) = identity-root override. Invariant: vary patient_seed at fixed master → identical arrival schedule, different people; vary replication_index → fresh paired world on both axes.
-- Eager where index-knowable at creation → drawn at spawn, frozen to roster; lazy elsewhere (mathematically the pre-drawn table materialised on demand). **◆ Arrays key per LOGICAL DRAW-EVENT** — whole array from one keyed generator (secondary-region sets, MASCAL offsets) — preserving exact distributional identity; never per-element decomposition of joint draws.
-- **◆ Vehicle-return keying decided: casualty-leg** `(casualty_uid, VEHICLE_RETURN, leg n)` — a vehicle-mission stream would couple to dispatch interleaving and reimport desync; unrealised draws in an arm leak only doctrine-genuine congestion signal.
-- **◆ SELLKE RESCOPED TO STEP 4.** Q3: deterioration is deterministic as-built (zero draws, engine.py:700-860; ladder engine.py:324-362). Introducing Sellke is a MODELLING change belonging to the Step-4 PFC adjudication (now three candidates: inline ladder · pfc.py linear · Sellke). S2 does NOT touch deterioration; it pre-draws `frailty_threshold` (uniform(0,1), purpose FRAILTY) into the roster — reserved, unused, identity-stable for the day Sellke is chosen. O3 (direction-only) remains the watchdog.
-- Purpose codes: closed enum `RNGPurpose` — identity: TRIAGE, MECHANISM, PRIMARY_REGION, SECONDARY_COUNT, SECONDARY_REGIONS, SEVERITY, VITALS(field∈{GCS,HR,BP,RR,SPO2}), FRAILTY, TREATMENT(episode n), TRANSIT(leg n), VEHICLE_RETURN(leg n); system: ARRIVAL_GAP(n), MASCAL_GAP(n), MASCAL_SIZE(n), MASCAL_OFFSETS(event n). The three treatment sites (engine.py:1096/1140/1192) are ONE purpose.
-- **◆ Fallback hazard killed:** in keyed mode the `rng or default_rng()` constructor fallbacks (Q1 census) RAISE; a lint invariant forbids unseeded generator construction in src/ permanently (covers triage.py:42-43).
-- Dual-mode strangler: `rng_mode: shared | keyed`, default shared through 0d; keyed becomes DEFAULT at 0e with the one sanctioned O1 regen (sole committed baseline, Q7). Shared retained for archaeology.
-- Perf: ~9 ms/run, 286 scalar draws (Q5/Q6 measured; the earlier 44 ms figure was stale). Cache per (uid, purpose) inside the keyed API chokepoint; draw-count instrumentation is a dict increment there (Q9).
-- Thaw criterion: keyed mode, A-vs-C → ARRIVAL events byte-identical AND roster hash config-invariant (I-2). Minuted at gate.
+## Design as built
 
----
+- Unit of synchronisation is the DRAW: identity-axis draws keyed
+  `(casualty_uid, purpose, occurrence)`, system-axis `(stream, occurrence)`.
+  Per-draw keying, not casualty-level decks.
+- **Philox counter-based keying** (`src/faer_dev/core/rng.py`): 256-bit counter encodes
+  `(0, occurrence, purpose_index, blake2b-64(entity))`; 128-bit key from
+  `SeedSequence(entropy=(master_seed, replication_index))`. **`.spawn()` forbidden on
+  the identity axis** — counter blocks are position-free.
+- Root entropy carries the replication index (`ensemble → builder → engine`).
+  `patient_seed` is live in keyed mode: it pins the SINGLE keyed root across ensembles
+  (paired arms across different `base_seed`s — invariant I-7); shared mode keeps the
+  legacy `base_seed + i` untouched.
+- **Eager** at creation: TRIAGE, MECHANISM, PRIMARY_REGION, SECONDARY_COUNT,
+  SECONDARY_REGIONS (one array draw-event), SEVERITY, POLYTRAUMA (inverted path),
+  FRAILTY_THRESHOLD (reserved, unused — deterioration untouched at S2; Sellke rescoped
+  to the Step-4 PFC adjudication per FINAL v1 ◆). **Lazy:** TREATMENT (one purpose,
+  three engine sites; episode n), VEHICLE_RETURN (casualty leg n — per FINAL v1 ◆),
+  VITALS (per ATMIST handover n). **System axis:** ARRIVALS(n), MASCAL_GAP/SIZE(event
+  n), MASCAL_OFFSETS (one keyed array draw per event — arrays per logical draw-event ◆).
+- Roster behind `enable_roster`, rows at creation; digest reuses the F0.1 canonical
+  dump; parquet writer = **optional extra** (ruling): `pip install faer-dev[roster]`.
+- Purpose codes: closed enum `RNGPurpose`; ad-hoc keys rejected at the draw API.
+- Dual-mode strangler `rng_mode: shared | keyed`; **keyed is the DEFAULT since 0e**
+  (one sanctioned O1 regen, artefact `docs/MVP/S2_0E_GOLDEN_REGEN.md`); shared retained
+  for archaeology, byte-frozen, policed by the pinned I-5 digest + wire-discrimination
+  check.
 
-## 0. Scope fence
-IN: slices 0c-1/0c-2/0c-3, 0d, 0e · slice 1 · tails §3. (0a/0b complete — the interrogation session; answers file is normative.)
-OUT: deterioration/Sellke mechanics (Step 4) · pfc.py adjudication (Step 4) · Step-3 multi-POI (per-POI sub-RNG dissolves into the key tuple; id_prefix is the collision seam — rider noted) · consumer wiring #4/#42/#53 · POLYBIUS itself (roster parquet = interface artefact; schema is 0c-2's to define, nothing external constrains it — Q8) · legacy walk · MVP_ACCEPTANCE.md.
+### Census corrections (ledger, 0c entries)
 
-## 1. Slice 0 — commits 0c-1 → 0c-2 → 0c-3 → 0d → 0e, red-then-green throughout
+- **VITALS is LAZY** — draws per ATMIST handover (`core/atmist.py` → `vitals.py`),
+  occurrence = handover n.
+- **TRANSIT is a per-mode vehicle-mission stream** (`transit:<mode>`, mission n): the
+  only production trip-time consumer is the BatchCoordinator, whose missions may serve
+  several patients. Gate: provisionally accepted; **VR-1 arbitrated — see OUTCOME.**
 
-**0c-1 KEYED CORE + PLUMBING (no draw site converted):** `rng_mode` toggle on SimulationToggles · `RNGPurpose` enum + KeyedRNG module (entropy layout above; Philox; per-(uid,purpose) cache; per-purpose draw counters) · `replication_index` threaded through the three-site surface ensemble.py:190-192 → builder.py:144/158 → engine.py:142 (Q5) · `patient_seed` wired live per the semantics table · shared mode byte-untouched: 134 green, O1 identical. Commit.
+### DEVIATIONS from FINAL v1 (`e9dd941`) — on the record, none silent
 
-**0c-2 EAGER + ROSTER:** convert identity-at-spawn draws (triage, mechanism, regions, severity, vitals — Q2 EAGER rows) to keyed; add FRAILTY reserved draw · roster assembly at the ARRIVAL emission point (engine.py:681-688 — identity + derived fields, the full Q0 row + frailty + key-schema version stamp) · parquet writer behind `emit_roster` flag ⟨HUMAN RULING pending on dependency: recommend pyarrow as optional-extra; writer raises helpfully if absent; in-memory roster + hash always available regardless⟩ · keyed-mode red witnessed first: I-2 attribute clause fails BEFORE this commit (arrivals still shared), roster-hash clause passes AFTER it under explicit rng_mode="keyed". Commit.
+The build sessions executed the §6 kickoff prompt; FINAL v1's ◆ refinements were never
+loaded into the build session (the file was authored between sessions and sat untracked).
+Deltas, each with disposition:
 
-**0c-3 LAZY + SYSTEM-AXIS:** arrivals/MASCAL to system-axis keys · treatment (one purpose, three sites), transit legs, vehicle returns to casualty-keyed lazy · occurrence counters per Q2 proposals (per-casualty ordinals; MASCAL event/member indices) · fallbacks-raise in keyed mode. I-2 goes fully green in keyed mode. Commit.
+| # | FINAL v1 specified | As built | Disposition |
+|---|---|---|---|
+| D1 | Entropy layout: SeedSequence-style tuples, `uid_int` = factory counter n | Philox counter block, entity = blake2b-64 of uid string | Equivalent keying properties (position-free, order-invariant); string-hash also covers system streams uniformly. ACCEPT-AS-BUILT proposed |
+| D2 | **Dual-root seed semantics**: `patient_seed` = identity-root override, separate from system root — "vary patient_seed at fixed master → identical arrival schedule, different people" | Single root; `patient_seed` pins the WHOLE root in ensemble keyed mode (varying it changes arrivals too) | **SUBSTANTIVE — not implemented.** The "same schedule, different people" axis-separation invariant does not exist as built. Register row added; needs a gate ruling (implement at Step-3 entry vs accept single-root) |
+| D3 | FRAILTY drawn uniform(0,1) | Exp(1) (standard Sellke threshold form) | Both inert/reserved; monotone-equivalent. ACCEPT-AS-BUILT proposed; Step-4 adjudication picks the final form |
+| D4 | Keyed mode RAISES on `rng or default_rng()` constructor fallbacks + standing lint invariant (I-6 LINT: no unseeded construction in src/) | Not implemented; I-6 slot used for the route-divergent equivalence fixture instead; latent fallbacks remain dormant-but-present (Q1 census) | **OPEN.** Lint-as-test is zero-src-lines and cheap; fallback-raise touches intrinsic-zone constructors. Register row added — candidate first item of the next session |
+| D5 | VITALS keyed per field (GCS/HR/BP/RR/SPO2) | One VITALS draw-event per handover yielding the 5 values | Same invariance class (array-per-logical-draw-event rule ◆). ACCEPT-AS-BUILT proposed |
+| D6 | Roster assembled at the ARRIVAL emission (identity + derived decision fields + key-schema version stamp) | Roster at `create()` — identity fields + frailty only; no derived fields; no key-schema version | **PARTIAL.** I-2's roster clause polices the as-built rows; derived fields are deterministic (draw-free routing) so invariance is not weakened. Register row: enrich roster (derived fields + key-schema version) when POLYBIUS schema is defined |
+| D7 | I-3 via widened `log_digest(events, draw_counts=None)`, explicitly "no synthetic events" | Additive `log_digest_with_draws()` folding counts as a synthetic terminal row | Functionally equivalent detector; signature of `log_digest` untouched (smaller blast radius). ACCEPT-AS-BUILT proposed |
 
-**0d INVARIANTS + POISON (keyed mode exercised explicitly; default still shared):**
-- I-1 keyed determinism: double run, digests equal.
-- I-2 IDENTITY INVARIANCE (the point): keyed, A vs C → ARRIVAL byte-identical · roster hash identical · per-casualty field equality. (Red history across 0c-2/0c-3 documented in docstrings.)
-- I-3 draw-count census in digest: widen `log_digest(events, draw_counts=None)` (canonical.py:33-42; merged into the hashed blob — no synthetic events); harness threads counts; keyed A-vs-C per-purpose counts equal on shared casualties, divergences attributable.
-- I-4 POISON (R17 pattern, scoped): test-only hook mis-keys ONE purpose → I-2 FAILS; hook removed → green.
-- I-5 shared-mode regression: 134 green, O1 byte-identical.
-- I-6 LINT: static scan — no unseeded `default_rng()`/module-level `np.random.*`/`random.*` draws in src/; keyed-mode fallback-raise covered by unit test.
-- I-7 SEED SEMANTICS: patient_seed varied at fixed master → arrival sim_times identical, rosters differ; replication_index varied → both differ; ensemble reps decorrelated.
-Commit.
+## Slice log (all commits atop `4b28bad`)
 
-**0e FLIP + RE-BLESS + THAW:** default `rng_mode=keyed` · ONE sanctioned `pytest --regen-golden` (tests/conftest.py:24-39), diff artefact committed for gate review — the sole re-baseline (Q7) · recipe-vacuity check on the riders (hold_promotion_run `assert promotions`, O3/O4/O5 non-vacuity, T-5-6/7 scenarios): if any tuned scenario goes vacuous, RE-TUNE THE RECIPE, never the assertion, one-line justification each · O2 band, T-5-* properties, conservation, all toggle-arm equality suites must pass UNMODIFIED — a failure there is a KEYING DEFECT, stop and report · THAW: I-2 re-run at default, minuted → comparison lane REOPENS. Commit.
+| Commit | Content |
+|---|---|
+| `1773db7` | S2_PREBUILD_ANSWERS.md (Q0–Q9; Q0 verdict **BOTH**) |
+| `b14eddc` | PREREG_VR1 registered (before any keyed comparison viewed) |
+| `2996aa5` | 0c-1 keyed core + plumbing (shared untouched; 134 green; O1 identical) |
+| `cc55fcf` | 0c-2 eager draws + frailty + roster (**I-2 red witnessed**: attributes already invariant — the two Q0 defects proved separable live) |
+| `a062487` | 0c-3 lazy + system-axis (**I-2 GREEN keyed**) |
+| `6b2b4ea` | 0d invariants I-1–I-7 + poison (red witnessed: one mis-keyed purpose diverges 51/56 casualties) |
+| `62da8c9` | 0e default flip + ONE sanctioned golden regen + **THAW minuted** |
+| `00b20ff` | slice 1: guards (empty-facilities RAISE · role-presence · GM-3) · version stamp · `triage_distribution` WIRED · `scenario_overrides` API · I-5 re-pinned with the Amendment-1 discriminating check |
+| `436a0dc` | PREREG amendment (resource pair) — predates the VR-1 run by git order |
+| `c745763` | tails: T-5-8 mixed-caseload over-filtering control · Rule-8 addendum ratified |
+| `8229299` | VR-1 results |
+| `e9dd941` | FINAL v1 instruction file preserved as-received |
 
-## 2. Slice 1 — config machinery (light half, one commit + rulings)
-`scenario_overrides` on EnsembleBuilder → `sweep()` internals onto it (F0.2 signature survives) · scenario version stamp · guard family: role-presence · capability-ON analysis rule (GM-3) · empty-facilities ⟨HUMAN: valid-empty vs raise⟩ · `triage_distribution` wire-or-delete ⟨HUMAN; O2 polices⟩.
+**Sanctioned surface seam (precedent by record, gate recording note):** the
+`triage_distribution` wire is a builder-side POST-CONSTRUCTION ATTRIBUTE ASSIGNMENT
+from `config/` onto `engine.casualty_factory.triage_shift` — hasattr-guarded, zero
+intrinsic-zone lines, inverted/BT path unaffected by design, MASCAL-side distribution
+context-registered. Config-derived engine annotations (`scenario_stamp`) use the same
+seam.
 
-## 3. Tails
-Mixed-caseload killer variant · CURRENT/checker reconciliation · route-divergent equivalence fixture (proof rides keyed streams) · Rule-8 addendum text for CLAUDE.md: "identical code paths AND per-entity keyed streams AND tested invariants" ⟨paste or explicit delegation⟩ · PREREG_VR1.md (IRON BRIDGE, paired vs unpaired reps, golden-hour ITT + mortality per 5a standard) — committed BEFORE any keyed comparison result is viewed, run post-thaw · Registry lesson: "a fixed seed buys reproducibility, not comparability."
+## Re-baseline matrix (settled empirically at 0e/slice 1)
 
-## 4. Re-baseline matrix (Q7, normative)
-RE-BASELINE: O1 only (tests/golden/coin_s42.json — sole committed baseline). RECIPE-SENSITIVE (re-tune scenario, never assertion): hold_promotion_run, O3/O4/O5 non-vacuity, T-5-6/7. PROPERTY-SAFE (unmodified): O2 band · O3 direction · T-5-5a/b · conservation · capability safety/liveness · all double-run determinism · seed-difference · every toggle-arm equality suite (post-flip failure = keying defect signal).
+- **RE-BASELINE (complete):** O1 golden (once, artefact committed) ·
+  `hold_promotion_run` recipe (cohort 60→120, assertions untouched) · I-5 pin
+  (slice 1, WIRE ruling; `test_i5_wire_discrimination` proves the delta is
+  config-value-only — override back to context defaults reproduces the pre-wire pin
+  `9164bd97…` byte-for-byte).
+- **PROPERTY-SAFE — all passed unmodified:** O2 ±0.15 (now policing the WIRED
+  distribution) · O3 direction · O4 · O5 · O6 · Rule-4 conservation · T-5-1/2/3/4/6/7 ·
+  T-5-5a/b · every toggle-equivalence and double-run suite · seed-difference.
+  **The Q7 census predicted this blast radius exactly.**
 
-## 5. Phase gate — Definition of Done (STOP for human confirmation)
-□ 0c-1 shared untouched, 134 green · □ 0c-2/0c-3 keyed reds witnessed then green · □ 0d I-1–I-7 green, poison red witnessed · □ 0e golden diff reviewed; property-safe list unmodified; recipe re-tunes justified · □ THAW minuted (I-2 at default) · □ Slice 1 + two human rulings recorded · □ PREREG_VR1 committed pre-viewing · □ Rule-4 ×3 configs · □ Intrinsic LOC actual vs 120–160 declaration · □ Rule-8 addendum ratified or explicitly deferred · □ parquet dependency ruling recorded
-HALT. Step 3 and Step-4 adjudication remain unauthorised.
+## §5 Definition of Done — final
 
-## 6. Kickoff prompt (verbatim, for CC in Cursor)
-NOT plan mode. Verify HEAD = answers-commit atop 4b28bad, record SHA; tree clean; pytest 134 green; read docs/MVP/BUILD_S2.md + S2_PREBUILD_ANSWERS.md in full (answers normative for census facts) → 0c-1 commit → 0c-2 commit (I-2 red witnessed pre-commit under rng_mode="keyed") → 0c-3 commit (I-2 fully green keyed) → 0d commit (I-1–I-7; poison red witnessed) → 0e commit (default flip; ONE --regen-golden with diff artefact; property-safe suites unmodified or STOP; recipe re-tunes one-line justified; thaw I-2 minuted) → slice-1 commit (+ record the two human rulings; if not yet given, STOP at that point and report) → tails commits (PREREG_VR1 BEFORE viewing any keyed comparison) → HALT at §5 gate, DoD filled. Rules: seed=42 · British English · inline-dict fixtures · .spawn() forbidden on identity axis · arrays keyed per logical draw-event · deterioration untouched · shared mode never edited after 0c-1 · MVP_ACCEPTANCE.md never edited · intrinsic LOC drifting materially beyond 160 = STOP · Write tool + ls · nothing outside §0.
+☑ 0c-1 shared untouched, 134 green · ☑ 0c-2/0c-3 keyed reds witnessed then green ·
+☑ 0d I-1–I-7 green, poison red witnessed · ☑ 0e golden diff reviewed; property-safe
+unmodified; recipe re-tune justified · ☑ THAW minuted (I-2 at plain defaults) ·
+☑ slice 1 + both rulings recorded (RAISE · WIRE) · ☑ PREREG committed pre-viewing;
+amendment pre-run · ☑ Rule-4 ×3 configs · ☑ intrinsic LOC 204 raw / 176 code-only vs
+120–160 declaration — **accepted at gate** (precedence clause; calibration lesson
+ledgered) · ☑ Rule-8 addendum ratified · ☑ parquet ruling recorded (optional-extra) ·
+⚠ D2/D4/D6 deviations open on the register (this record is their disclosure).
+
+## OUTCOME (gate rulings folded in, 2026-07-07)
+
+- **Thaw language (SCOPED):** *casualty identity and arrival streams are provably
+  config-invariant; journey-draw pairing is per-purpose.* I-2 certifies identity +
+  arrival invariance, not full-trajectory pairing.
+- **Transit provisional — arbitrated by VR-1:** golden-hour ITT (the transit-heavy
+  metric) paired to within 3/200 in one rep of twenty; variance ratio **776** vs
+  unpaired. Mission-stream keying as built is empirically sufficient for paired
+  comparison at this scale. Standing question rides to Step 3: does
+  re-plan-on-promotion move dispatch order enough to make the provisional bite?
+- **VR-1 headline (first quotable paired evidence):** registered hypothesis satisfied
+  overwhelmingly — ratio 776 on golden-hour ITT; view-variant and mortality paired
+  PERFECTLY (all 20 diffs zero); the resource perturbation proved inert at these
+  parameters (byte-exact pairing under an inert config delta; binding perturbation
+  deferred to PoC design). Secondary observation for 5a: doctrine sensitivity lives in
+  treatment timing; mortality as-built is identity-carried.
+- **Registry lesson (standing):** a fixed seed buys reproducibility, not comparability
+  — comparability is a designed property.
+
+HALT. Step 3 (multi-POI + routing semantics) and Step-4 PFC adjudication remain
+UNAUTHORISED; the per-POI sub-RNG dissolves into the key tuple — Step 3 inherits this
+architecture and builds none of it.

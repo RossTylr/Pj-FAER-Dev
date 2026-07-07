@@ -1,7 +1,7 @@
 # CLAUDE.md — Claude Code Instructions for Pj-FAER-Dev
 
-> **Load gate — before writing any code:** read `docs/CURRENT.md` for the active phase
-> and current step, and confirm the relevant `docs/phase<N>/NB<xx>_*.md` spec **or**
+> **Load gate — before writing any code:** read `docs/MVP/CURRENT.md` for the active
+> phase and current step, and confirm the relevant `docs/phase<N>/NB<xx>_*.md` spec **or**
 > `notebooks/phase<N>/NB<xx>_*.ipynb` notebook for that step is loaded. If not loaded,
 > stop and load it. Run `python scripts/check_claude_md.py`; it must pass before building.
 
@@ -79,14 +79,14 @@ testing pattern, the HC-*/MC-* constraints and verification standards live in `A
 
 ## Current Position
 
-Active phase and current step are recorded in **`docs/CURRENT.md`** (single source of truth);
+Active phase and current step are recorded in **`docs/MVP/CURRENT.md`** (single source of truth);
 the full ordered sequence per phase lives in that file's linked `BUILD_INSTRUCTIONS.md`.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `docs/CURRENT.md` | Active phase + current step + link to the active sequence |
+| `docs/MVP/CURRENT.md` | Canonical phase state: active phase + current step + deferred register (sole phase-state file since the S2 reconciliation) |
 | `docs/MAAFI/MAAFI_VERDICT.md` | MAAFI verdict — governs tier and build order (authority) |
 | `AGENTS.md` | Coding style, testing pattern, HC-*/MC-* constraints, verification |
 | `docs/dse/faer_dse_context_index.md` | DSE source of truth for HC-*/MC-* constraints |

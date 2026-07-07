@@ -207,3 +207,23 @@ Future Rule-3 declarations state the counting convention up front (raw added vs
 code-only; max(added, removed, touched)) and include dual-mode strangler duplication in
 the estimate — S2 was the second time the convention got settled at the gate rather
 than before it.
+
+## Close-out (final entries)
+
+- **PREREG amendment (`436a0dc`) provably predates the VR-1 results (`8229299`)** —
+  git order is the witness, per the approval's recording requirement.
+- **VR-1 headline:** routing-pair golden-hour ITT variance ratio **776** (paired var
+  1.125×10⁻⁵ vs unpaired 8.726×10⁻³; the entire paired variance is rep 19's 3/200
+  delta); view-variant and mortality paired PERFECTLY; resource perturbation INERT
+  (byte-exact pairing; +4 R1-ALPHA beds never bind at n=200). Registered hypothesis
+  satisfied overwhelmingly. Full record: `docs/MVP/VR1_RESULTS.md`.
+- **FINAL v1 discovery:** the untracked BUILD_S2.md turned out to be the ratified
+  FINAL v1 instruction file (authored between sessions, never loaded into the build).
+  Preserved verbatim at `e9dd941`; the as-built record carries an explicit
+  **DEVIATIONS table (D1–D7)** — substantive open items D2 (patient_seed dual-root
+  semantics), D4 (fallback lint/raise), D6 (roster enrichment) are register rows in
+  CURRENT.md Rev 3. Nothing silent.
+- **Reconciliation executed:** `docs/CURRENT.md` deleted; markers moved into
+  `docs/MVP/CURRENT.md` (Rev 3); `scripts/check_claude_md.py` re-pathed; CLAUDE.md
+  load-gate/Key Files/Current-Position pointers updated; Rule-8 addendum ratified
+  verbatim.

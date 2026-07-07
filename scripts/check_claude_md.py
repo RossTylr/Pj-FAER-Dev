@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Session-start probe for the FAER-Dev context files.
 
-Fails loudly when CLAUDE.md / docs/CURRENT.md drift from disk reality. Three guards:
+Fails loudly when CLAUDE.md / docs/MVP/CURRENT.md drift from disk reality. Three guards:
 
-  1. Floor       — every path named in CLAUDE.md / docs/CURRENT.md exists.
+  1. Floor       — every path named in CLAUDE.md / docs/MVP/CURRENT.md exists.
   2. NB refs     — every NB<nn>_<name> token in CLAUDE.md resolves to a real spec/notebook.
   3. Parity drift — the highest extraction step whose fixed-seed parity test is GREEN must
-                    not exceed the step declared in docs/CURRENT.md. Catches the case where a
-                    new toggle is wired and the marker is not advanced (the file would then lie).
+                    not exceed the step declared in docs/MVP/CURRENT.md. Catches the case where
+                    a new toggle is wired and the marker is not advanced (the file would then
+                    lie). The marker host moved from docs/CURRENT.md at the S2 close-out
+                    reconciliation — one sole phase-state file (RAIE).
 
 Ground truth for "where we are" is a test result, not a doc assertion or a git guess. A
 missing/erroring pytest selector counts as NOT green (skip, never crash) so a step can be
@@ -27,7 +29,7 @@ SRC = ROOT / "src" / "faer_dev"  # verified source root (pyproject: where = ["sr
 
 # --- Floor: paths that must exist on disk -----------------------------------------------
 FLOOR_PATHS = [
-    "docs/CURRENT.md",
+    "docs/MVP/CURRENT.md",
     "AGENTS.md",
     "docs/dse/faer_dse_context_index.md",
     "scripts/check_claude_md.py",
@@ -90,13 +92,13 @@ def check_nb_refs(failures: list[str]) -> None:
 
 def read_current_step(failures: list[str]) -> str | None:
     try:
-        text = (ROOT / "docs" / "CURRENT.md").read_text(encoding="utf-8")
+        text = (ROOT / "docs" / "MVP" / "CURRENT.md").read_text(encoding="utf-8")
     except OSError as e:
-        fail(failures, f"marker: cannot read docs/CURRENT.md ({e})")
+        fail(failures, f"marker: cannot read docs/MVP/CURRENT.md ({e})")
         return None
     m = re.search(r"<!--\s*CURRENT_STEP:\s*(\S+)\s*-->", text)
     if not m:
-        fail(failures, "marker: docs/CURRENT.md has no '<!-- CURRENT_STEP: ... -->' marker")
+        fail(failures, "marker: docs/MVP/CURRENT.md has no '<!-- CURRENT_STEP: ... -->' marker")
         return None
     return m.group(1).split("/")[-1]  # 'phase2/NB40_graph_routing' -> 'NB40_graph_routing'
 
