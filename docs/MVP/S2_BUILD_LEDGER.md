@@ -163,3 +163,47 @@ written this session.**
 
 Remaining tails NOT reached (stop at slice-1 per kickoff): mixed-caseload killer variant ·
 CURRENT/checker reconciliation · Rule-8 addendum text. PREREG_VR1 done (pulled forward).
+
+---
+
+# CLOSE-OUT SESSION (2026-07-07, post-gate ratification)
+
+Rulings received: **empty-facilities = RAISE** · **triage_distribution = WIRE** · LOC 176
+accepted (calibration lesson below) · transit-as-built **provisionally accepted** (VR-1
+arbiter) · thaw language SCOPED: *identity + arrival invariance certified; journey-draw
+pairing is per-purpose* — I-2 does not police vehicle-mission streams.
+
+## Slice 1 (this commit) — guards · stamp · wire · overrides
+
+- Guard family `src/faer_dev/config/guards.py`: `require_facilities` (RAISE ruling),
+  `require_role_presence` (POI + treatment facility), `require_analysis_toggles` (GM-3;
+  enforcement home `EnsembleBuilder(analysis=True)`).
+- `scenario_stamp` — sha256 of the canonical scenario dump; on every engine and
+  ensemble snapshot.
+- `arrivals.triage_distribution` WIRED — builder-side injection onto the legacy
+  factory's `triage_shift` (post-construction attribute assignment from `config/`,
+  hasattr-guarded; the **sanctioned surface seam**, precedent by record). MASCAL-side
+  distribution stays context-registered; inverted/BT path unaffected by design. O2
+  polices; direct shape test added.
+- `apply_scenario_overrides` (dotted paths) — canonical home of the R16b dict-edit
+  pattern; `EnsembleBuilder(scenario_overrides=…)` runs every replication on the edited
+  dict; `sweep()` internals swapped onto it, F0.2 signature untouched (AC-F0.2c green).
+- `run_to_log` gains `replication_index` pass-through (VR-1 needs it).
+
+**I-5 interaction — Amendment 1 executed.** The wire changes the shared-mode coin
+realisation (config semantics, not stream). Discriminating check
+(`test_i5_wire_discrimination`): overriding the wired distribution back to COIN's
+context-registered values reproduces the PRE-WIRE pin `9164bd97…` **byte-for-byte** —
+the delta is carried entirely by the config value; the wiring mechanism itself perturbs
+nothing. I-5 re-pinned to the wired digest `9c9a3fda…` (recomputed at execution,
+matching the plan-time probe). Keyed golden verified UNCHANGED by the wire — **no
+second golden regeneration**.
+
+Suite: **152 passed** (141 + 10 slice-1 + the discriminating check).
+
+## LOC calibration lesson (gate-directed)
+
+Future Rule-3 declarations state the counting convention up front (raw added vs
+code-only; max(added, removed, touched)) and include dual-mode strangler duplication in
+the estimate — S2 was the second time the convention got settled at the gate rather
+than before it.

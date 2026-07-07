@@ -16,7 +16,12 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from faer_dev.config.builder import build_engine_from_preset
+from faer_dev.config.builder import (
+    apply_scenario_overrides,
+    build_engine_from_dict,
+    get_preset_raw,
+)
+from faer_dev.config.guards import require_analysis_toggles
 from faer_dev.decisions.mode import SimulationToggles
 from faer_dev.events.store import EventStore
 
@@ -99,6 +104,8 @@ class EnsembleSnapshot:
     stores: List[EventStore] = field(default_factory=list)
     # Phase 4.5.1b additions (backward compatible defaults)
     sim_time: float = 0.0
+    # S2 slice 1: version stamp of the scenario the replications ran
+    scenario_stamp: str = ""
     facility_occupancy: Dict[str, AggStat] = field(default_factory=dict)
     patients_in_system: Optional[AggStat] = None
     mascal_active_proportion: float = 0.0
@@ -150,6 +157,8 @@ class EnsembleBuilder:
         base_seed: int = 42,
         patient_seed: Optional[int] = None,
         toggles: Optional[SimulationToggles] = None,
+        scenario_overrides: Optional[Dict[str, Any]] = None,
+        analysis: bool = False,
     ) -> None:
         """
         Args:
@@ -165,12 +174,22 @@ class EnsembleBuilder:
                 draw identical per-entity randomness (paired arms). Inert in
                 shared mode (legacy behaviour preserved).
             toggles: Simulation feature toggles.
+            scenario_overrides: Dotted-path scenario edits applied to the
+                preset raw before every replication (S2 slice 1), e.g.
+                ``{"facilities.R1-ALPHA.beds": 12}``. The canonical
+                scenario-variation API — sweeps and doctrine variants edit
+                config, never code (Rule 8).
+            analysis: Declare this an analysis/doctrine run — enforces the
+                GM-3 capability-ON interim rule at construction.
         """
         self.preset = preset
         self.n_replications = n_replications
         self.base_seed = base_seed
         self.patient_seed = patient_seed  # Meaningful in keyed mode only
         self.toggles = toggles or SimulationToggles()
+        self.scenario_overrides = scenario_overrides
+        if analysis:
+            require_analysis_toggles(self.toggles)
         self._stores: List[EventStore] = []
 
     def run(
@@ -185,6 +204,14 @@ class EnsembleBuilder:
             n_replications=self.n_replications,
         )
 
+        # Resolve the scenario once: preset raw + dotted overrides (S2
+        # slice 1). Every replication runs the identical edited dict.
+        scenario = get_preset_raw(self.preset)
+        if self.scenario_overrides:
+            scenario = apply_scenario_overrides(
+                scenario, self.scenario_overrides
+            )
+
         for i in range(self.n_replications):
             if self.toggles.rng_mode == "keyed":
                 # Replication enters the ROOT entropy, not the seed: pairing
@@ -198,8 +225,8 @@ class EnsembleBuilder:
                     "Ensemble replication %d/%d (keyed root=(%d, %d))",
                     i + 1, self.n_replications, master, i,
                 )
-                engine = build_engine_from_preset(
-                    self.preset, seed=master, toggles=self.toggles,
+                engine = build_engine_from_dict(
+                    scenario, seed=master, toggles=self.toggles,
                     replication_index=i,
                 )
             else:
@@ -209,9 +236,10 @@ class EnsembleBuilder:
                     i + 1, self.n_replications, rep_seed,
                 )
 
-                engine = build_engine_from_preset(
-                    self.preset, seed=rep_seed, toggles=self.toggles,
+                engine = build_engine_from_dict(
+                    scenario, seed=rep_seed, toggles=self.toggles,
                 )
+            snapshot.scenario_stamp = engine.scenario_stamp
             metrics = engine.run(
                 duration=duration,
                 poi_id=poi_id,

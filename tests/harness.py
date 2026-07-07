@@ -11,10 +11,13 @@ on EnsembleBuilder.
 
 from __future__ import annotations
 
-import copy
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from faer_dev.config.builder import build_engine_from_dict, build_engine_from_preset
+from faer_dev.config.builder import (
+    apply_scenario_overrides,
+    build_engine_from_dict,
+    build_engine_from_preset,
+)
 from faer_dev.events.canonical import canonical_log
 from faer_dev.events.serialization import EventSerializer
 
@@ -35,6 +38,7 @@ def run_to_log(
     max_patients: int = 200,
     toggles=None,
     drain: bool = True,
+    replication_index: int = 0,
 ) -> Tuple[Any, List[Dict[str, Any]]]:
     """Run a scenario to completion and return ``(engine, canonical_log)``.
 
@@ -46,9 +50,15 @@ def run_to_log(
     and journeys finish naturally.
     """
     if isinstance(scenario, str):
-        engine = build_engine_from_preset(scenario, toggles=toggles, seed=seed)
+        engine = build_engine_from_preset(
+            scenario, toggles=toggles, seed=seed,
+            replication_index=replication_index,
+        )
     else:
-        engine = build_engine_from_dict(scenario, toggles=toggles, seed=seed)
+        engine = build_engine_from_dict(
+            scenario, toggles=toggles, seed=seed,
+            replication_index=replication_index,
+        )
 
     if drain:
         # Start arrivals without advancing time, then run the window.
@@ -80,24 +90,6 @@ def run_to_log(
     return engine, canonical_log(raw)
 
 
-def _set_dotted(scenario: Dict[str, Any], set_path: str, value: Any) -> None:
-    """Set ``set_path`` (e.g. ``"facilities.R1-ALPHA.beds"``) in place.
-
-    List segments are resolved by matching each element's ``id`` field,
-    because scenario dicts hold facilities as a list, not a mapping.
-    """
-    node: Any = scenario
-    parts = set_path.split(".")
-    for part in parts[:-1]:
-        if isinstance(node, list):
-            node = next(item for item in node if item.get("id") == part)
-        else:
-            node = node[part]
-    if isinstance(node, list):
-        raise ValueError(f"set_path {set_path!r} ends on a list segment")
-    node[parts[-1]] = value
-
-
 def sweep(
     base_scenario: Dict[str, Any],
     set_path: str,
@@ -117,8 +109,9 @@ def sweep(
     """
     results: Dict[Any, List[Any]] = {}
     for value in values:
-        scenario = copy.deepcopy(base_scenario)
-        _set_dotted(scenario, set_path, value)
+        # S2 slice 1: the dict-edit mechanics live on the production
+        # scenario_overrides API now; sweep's signature is unchanged.
+        scenario = apply_scenario_overrides(base_scenario, {set_path: value})
         reps = []
         for rep in range(n_reps):
             engine, log = run_to_log(scenario, seed=seed + rep, **run_kwargs)

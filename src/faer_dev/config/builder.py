@@ -5,15 +5,23 @@ This is the glue between YAML configuration and the simulation engine.
 
 from __future__ import annotations
 
-from copy import deepcopy
+import hashlib
+import json
 import logging
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from faer_dev.config.guards import require_facilities, require_role_presence
 from faer_dev.config.loader import load_config
 from faer_dev.core.enums import OperationalContext, Role
 from faer_dev.core.exceptions import ConfigurationError
 from faer_dev.core.schemas import Facility
+from faer_dev.core.triage import (
+    MASCALTriageShift,
+    TriageDistribution,
+    get_mascal_shift,
+)
 from faer_dev.decisions.mode import SimulationToggles
 from faer_dev.simulation.arrivals import ArrivalConfig, get_arrival_config
 from faer_dev.simulation.engine import PolyhybridEngine
@@ -80,6 +88,44 @@ def _parse_bool(value: Any) -> bool:
     return bool(value)
 
 
+def apply_scenario_overrides(
+    scenario: Dict[str, Any], overrides: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Return a deep copy of ``scenario`` with dotted-path overrides applied.
+
+    ``{"facilities.R1-ALPHA.beds": 12}`` resolves list segments by matching
+    each element's ``id`` field (scenario dicts hold facilities as a list).
+    Canonical home of the R16b dict-edit pattern (S2 slice 1); the F0.2
+    ``sweep`` fixture delegates here.
+    """
+    out = deepcopy(scenario)
+    for set_path, value in overrides.items():
+        node: Any = out
+        parts = set_path.split(".")
+        for part in parts[:-1]:
+            if isinstance(node, list):
+                node = next(item for item in node if item.get("id") == part)
+            else:
+                node = node[part]
+        if isinstance(node, list):
+            raise ValueError(f"override path {set_path!r} ends on a list segment")
+        node[parts[-1]] = value
+    return out
+
+
+def scenario_stamp(scenario: Dict[str, Any]) -> str:
+    """SHA-256 version stamp of the canonical scenario dump (S2 slice 1).
+
+    Same dump conventions as the F0.1 event digest: sorted keys, compact
+    separators, ``default=str``. Two runs quoting the same stamp ran the
+    same scenario dict, byte for byte.
+    """
+    blob = json.dumps(
+        scenario, sort_keys=True, separators=(",", ":"), default=str
+    )
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
 def build_engine_from_dict(
     scenario: Dict[str, Any],
     toggles: Optional[SimulationToggles] = None,
@@ -99,6 +145,10 @@ def build_engine_from_dict(
     Returns:
         Configured PolyhybridEngine ready to run.
     """
+    # Guard family (S2 slice 1): fail at construction, never mid-run
+    require_facilities(scenario)
+    require_role_presence(scenario)
+
     context = _parse_context(
         _first_non_none(
             scenario.get("operational_context"),
@@ -164,6 +214,30 @@ def build_engine_from_dict(
         toggles=toggles,
         replication_index=replication_index,
     )
+
+    # Scenario version stamp (S2 slice 1) — post-construction attribute,
+    # the sanctioned surface seam for config-derived engine annotations
+    engine.scenario_stamp = scenario_stamp(scenario)
+
+    # Wire arrivals.triage_distribution (S2 slice 1, gate ruling: WIRE;
+    # O2 polices the result at ±0.15). Builder-side injection onto the
+    # legacy factory's triage_shift — sanctioned surface seam: post-
+    # construction attribute assignment from config/, hasattr-guarded.
+    # The MASCAL-shifted distribution stays the context's registered one;
+    # only the base is configurable. The inverted (BT) factory has no
+    # triage_shift and is unaffected by design — the BT assigns triage.
+    dist = (scenario.get("arrivals") or {}).get("triage_distribution")
+    if dist and hasattr(engine.casualty_factory, "triage_shift"):
+        base = TriageDistribution(
+            t1_surgical=float(dist.get("T1_SURGICAL", 0.0)),
+            t1_medical=float(dist.get("T1_MEDICAL", 0.0)),
+            t2=float(dist.get("T2", 0.0)),
+            t3=float(dist.get("T3", 0.0)),
+            t4=float(dist.get("T4", 0.0)),
+        )
+        engine.casualty_factory.triage_shift = MASCALTriageShift(
+            base=base, mascal=get_mascal_shift(context).mascal,
+        )
 
     edges = scenario.get("edges", [])
     facilities = scenario.get("facilities", [])

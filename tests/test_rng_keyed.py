@@ -14,7 +14,12 @@ import json
 
 import pytest
 
-from faer_dev.config.builder import build_engine_from_dict, build_engine_from_preset
+from faer_dev.config.builder import (
+    apply_scenario_overrides,
+    build_engine_from_dict,
+    build_engine_from_preset,
+    get_preset_raw,
+)
 from faer_dev.core.rng import RNGPurpose
 from faer_dev.data.roster import roster_digest
 from faer_dev.decisions.mode import SimulationToggles
@@ -165,22 +170,52 @@ def test_i4_poison_miskeyed_purpose_breaks_i2():
 # ---------------------------------------------------------------------------
 
 # Digest of the O1-protocol run (coin, seed 42, 480 min, max 50, undrained)
-# in shared mode, pinned 2026-07-07 at 0d — equal to the F0 golden at that
-# date. Shared mode is frozen from 0c-1: this literal must never change,
-# including through the 0e default flip (the 0e golden regen re-blesses the
-# KEYED universe; the shared universe stays byte-stable behind the toggle).
-_SHARED_O1_DIGEST = (
+# in shared mode. Original pin (2026-07-07, 0d): 9164bd97… — the F0-era
+# realisation. RE-PINNED at S2 slice 1 (2026-07-07, gate-approved): wiring
+# arrivals.triage_distribution (ratified WIRE ruling) legitimately changed
+# the coin preset's config semantics — the pin freezes the legacy RNG code
+# path, not the preset's config values. The discriminating check below
+# proves the delta is carried entirely by the config value.
+_SHARED_O1_DIGEST_PREWIRE = (
     "9164bd97efdde60ddb23f4e6529b2835641fe5b38137cb6181a3da3fb091e41d"
 )
+_SHARED_O1_DIGEST = (
+    "9c9a3fdade993e3a1d2d6693f18d85dad7492993da3ac14d6f3a64e907e7161d"
+)
+
+# COIN's context-registered distribution (core/triage.py:95-97) — the
+# effective default before the wire honoured the YAML key.
+_COIN_CONTEXT_DISTRIBUTION = {
+    "T1_SURGICAL": 0.05, "T1_MEDICAL": 0.10,
+    "T2": 0.25, "T3": 0.50, "T4": 0.10,
+}
 
 
 def test_i5_shared_mode_byte_frozen():
-    """I-5: shared mode reproduces its pinned pre-keying digest exactly."""
+    """I-5: shared mode reproduces its pinned digest exactly (wired
+    coin semantics since slice 1)."""
     _, log = run_to_log(
         "coin", duration_min=480.0, max_patients=50, drain=False,
         toggles=SimulationToggles(rng_mode="shared"),
     )
     assert log_digest(log) == _SHARED_O1_DIGEST
+
+
+def test_i5_wire_discrimination():
+    """Amendment 1 (gate, 2026-07-07): overriding the wired distribution
+    back to the previous effective default (COIN's context-registered
+    values) must reproduce the PRE-WIRE pin byte-for-byte — proving the
+    slice-1 delta is carried entirely by the config VALUE, with no stream
+    perturbation from the wiring mechanism itself. If this fails, that is
+    a genuine I-5 fire, not a config shift: STOP."""
+    scenario = apply_scenario_overrides(get_preset_raw("coin"), {
+        "arrivals.triage_distribution": dict(_COIN_CONTEXT_DISTRIBUTION),
+    })
+    _, log = run_to_log(
+        scenario, duration_min=480.0, max_patients=50, drain=False,
+        toggles=SimulationToggles(rng_mode="shared"),
+    )
+    assert log_digest(log) == _SHARED_O1_DIGEST_PREWIRE
 
 
 # ---------------------------------------------------------------------------
