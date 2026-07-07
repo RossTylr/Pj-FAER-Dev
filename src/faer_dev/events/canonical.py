@@ -40,3 +40,19 @@ def log_digest(events: Iterable[Dict[str, Any]]) -> str:
         canonical_log(events), sort_keys=True, separators=(",", ":"), default=str
     )
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def log_digest_with_draws(
+    events: Iterable[Dict[str, Any]], draw_counts: Dict[str, int]
+) -> str:
+    """Digest with per-purpose draw counts folded in (S2 invariant I-3).
+
+    The counts ride as a synthetic terminal row of the canonical blob —
+    the standing desync detector: a purpose whose draw count drifts flips
+    the digest even when the event stream happens to coincide.
+    """
+    tail = {
+        "event_type": "RNG_DRAW_COUNTS",
+        "draw_counts": {k: draw_counts[k] for k in sorted(draw_counts)},
+    }
+    return log_digest(list(events) + [tail])

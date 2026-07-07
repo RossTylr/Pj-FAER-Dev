@@ -82,3 +82,26 @@ I-2 VERDICT: GREEN
 
 Shared mode: 134 green, byte-stable. The keyed arrival sequence (56 in the 24 h window)
 is its own universe — the golden re-bless happens once, at 0e, by design.
+
+## 0d — invariants I-1–I-7 + poison (this commit)
+
+`tests/test_rng_keyed.py` (7 tests) + `log_digest_with_draws` (canonical.py, additive):
+
+| Invariant | Content |
+|---|---|
+| I-1 | keyed double-run: equal digests AND equal per-purpose draw counts |
+| I-2 | keyed A vs C: ARRIVAL bytes ≡, roster hash ≡, per-casualty field equality |
+| I-3 | draw counts recorded, reproducible, enter the digest, single-purpose drift flips it; eager purposes fire exactly once per casualty |
+| I-4 | POISON: mis-keying ONE purpose (global-ordinal occurrence — the exact defect class) makes I-2 fail; `pytest.raises` keeps the red witness permanent |
+| I-5 | shared-mode byte freeze: O1-protocol digest pinned as literal `9164bd97…e41d` — must survive 0e untouched |
+| I-6 | route-divergent equivalence fixture (R3-iv lesson): arms whose routes genuinely diverge (extracted walk → R2-A only; graph+capability → R2-B for surgical) still satisfy I-2 |
+| I-7 | replication enters the root (same rep reproduces, different rep decorrelates); EnsembleBuilder keyed arms sharing `patient_seed` draw identical randomness across different `base_seed`s |
+
+**Poison red witness (pre-commit, purpose=SEVERITY poisoned in both arms):**
+
+```
+POISON WITNESS: I-2 RED as required — ARRIVAL events not byte-identical
+poisoned purpose=SEVERITY: 51/56 casualties severity-divergent across A/C
+```
+
+Suite: **141 passed** (134 + 7). Shared default untouched.
