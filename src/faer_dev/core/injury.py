@@ -160,7 +160,12 @@ class InjuryProfileSampler:
         rng: Optional[np.random.Generator] = None,
     ) -> None:
         self.context = context
-        self.rng = rng or np.random.default_rng()
+        if rng is None:
+            raise ValueError(
+                "InjuryProfileSampler requires a seeded rng — "
+                "unseeded fallback removed (S2-D D4)"
+            )
+        self.rng = rng
         self.mechanism_probs = MECHANISM_PROBABILITIES.get(
             context, MECHANISM_PROBABILITIES[OperationalContext.COIN]
         )

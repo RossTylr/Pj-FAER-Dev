@@ -40,7 +40,10 @@ class TriageDistribution:
     ) -> list[TriageCategory]:
         """Sample n triage categories from this distribution."""
         if rng is None:
-            rng = np.random.default_rng()
+            raise ValueError(
+                "TriageDistribution.sample requires a seeded rng — "
+                "unseeded fallback removed (S2-D D4)"
+            )
 
         categories = [
             TriageCategory.T1_SURGICAL,

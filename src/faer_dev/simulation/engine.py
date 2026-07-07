@@ -139,16 +139,18 @@ class PolyhybridEngine:
         config: Optional[Dict[str, Any]] = None,
         toggles: Optional[SimulationToggles] = None,
         replication_index: int = 0,
+        patient_seed: Optional[int] = None,
     ) -> None:
         self.context = context
         self._rng = np.random.default_rng(seed)
         self.toggles = toggles or SimulationToggles()
         # S2 slice 0: keyed-draw root — replication enters the root entropy
-        # or ensemble arms correlate. None in shared mode.
+        # or ensemble arms correlate. None in shared mode. S2-D D2:
+        # patient_seed roots the identity axis (None = byte-exact no-op).
         self._replication_index = replication_index
         if self.toggles.rng_mode == "keyed":
             self._keyed_rng: Optional[KeyedRNGRoot] = KeyedRNGRoot(
-                seed, replication_index
+                seed, replication_index, patient_seed=patient_seed
             )
         else:
             self._keyed_rng = None
@@ -638,7 +640,7 @@ class PolyhybridEngine:
             )
         if self._roster is not None:
             from faer_dev.data.roster import roster_row
-            self._roster.append(roster_row(patient, record.time))
+            self._roster.append(roster_row(patient))
         # Find the POI facility to start the journey
         poi_id = self._poi_id
         if poi_id:

@@ -61,6 +61,18 @@ _PURPOSE_INDEX: Dict[RNGPurpose, int] = {
     p: i for i, p in enumerate(RNGPurpose)
 }
 
+# Axis census (S2-D D2): system-axis purposes root on master_seed; every
+# other purpose is identity-axis and roots on patient_seed (fallback:
+# master_seed). Membership mirrors the enum grouping above; I-7 clause 1
+# fails loudly if a purpose is misclassified.
+_SYSTEM_AXIS: frozenset = frozenset({
+    RNGPurpose.TRANSIT,
+    RNGPurpose.ARRIVALS,
+    RNGPurpose.MASCAL_GAP,
+    RNGPurpose.MASCAL_SIZE,
+    RNGPurpose.MASCAL_OFFSETS,
+})
+
 
 def _entity_hash(entity_id: str) -> int:
     """Stable 64-bit hash of an entity id (blake2b, not Python ``hash``,
@@ -74,16 +86,20 @@ class KeyedRNGRoot:
 
     One instance per engine run. Root entropy is
     ``(master_seed, replication_index)`` — replication MUST enter the root
-    or ensemble arms correlate. Each draw event receives a fresh
-    ``np.random.Generator`` over a Philox stream whose 256-bit counter
-    encodes ``(0, occurrence, purpose, entity)``; the zero word is the
-    in-draw counter, giving every draw event 2**64 blocks of headroom.
+    or ensemble arms correlate. Dual root (S2-D D2): the identity axis
+    roots on ``(patient_seed, replication_index)`` when patient_seed is
+    given, else it aliases the system key (byte-exact no-op). Each draw
+    event receives a fresh ``np.random.Generator`` over a Philox stream
+    whose 256-bit counter encodes ``(0, occurrence, purpose, entity)``;
+    the zero word is the in-draw counter, giving every draw event 2**64
+    blocks of headroom.
     """
 
     def __init__(
         self,
         master_seed: Optional[int],
         replication_index: int = 0,
+        patient_seed: Optional[int] = None,
     ) -> None:
         if master_seed is not None:
             entropy: Tuple[int, int] = (int(master_seed), int(replication_index))
@@ -93,7 +109,19 @@ class KeyedRNGRoot:
             seed_seq = np.random.SeedSequence()
         self.master_seed = master_seed
         self.replication_index = int(replication_index)
+        self.patient_seed = patient_seed
         self._key = seed_seq.generate_state(2, np.uint64)  # 128-bit Philox key
+        # Dual-root (S2-D D2): identity axis roots on patient_seed with
+        # replication in its entropy too. patient_seed=None aliases the
+        # system key OBJECT — byte-exact no-op by construction, including
+        # the unseeded master branch.
+        if patient_seed is None:
+            self._identity_key = self._key
+        else:
+            identity_seq = np.random.SeedSequence(
+                entropy=(int(patient_seed), int(replication_index))
+            )
+            self._identity_key = identity_seq.generate_state(2, np.uint64)
         self._occurrence: Dict[Tuple[str, RNGPurpose], int] = {}
         self.draw_counts: Dict[str, int] = {p.value: 0 for p in RNGPurpose}
         self._total_draws = 0
@@ -115,7 +143,8 @@ class KeyedRNGRoot:
         counter[1] = np.uint64(occurrence)
         counter[2] = np.uint64(_PURPOSE_INDEX[purpose])
         counter[3] = np.uint64(_entity_hash(entity_id))
-        return np.random.Generator(np.random.Philox(counter=counter, key=self._key))
+        key = self._key if purpose in _SYSTEM_AXIS else self._identity_key
+        return np.random.Generator(np.random.Philox(counter=counter, key=key))
 
     def draw(self, entity_id: str, purpose: RNGPurpose) -> np.random.Generator:
         """Generator for the NEXT occurrence of ``(entity, purpose)``.

@@ -26,11 +26,15 @@ def _name(value: Any) -> Any:
     return value.name if isinstance(value, Enum) else value
 
 
-def roster_row(casualty: Any, spawn_time: float) -> Dict[str, Any]:
+def roster_row(casualty: Any) -> Dict[str, Any]:
     """Build one roster row from a just-created Casualty.
 
     Only identity-axis attributes final at creation belong here — no
-    journey state, no routing-derived fields.
+    journey state, no routing-derived fields, no system-axis values.
+    (S2-D D2: spawn_time and MASCAL provenance removed — schedule facts
+    in the identity artefact broke dual-root axis separation; the event
+    log carries both. I-7 clause 3 polices this. POLYBIUS may re-add
+    provenance columns deliberately at D6 enrichment.)
     """
     return {
         "casualty_id": casualty.id,
@@ -41,10 +45,7 @@ def roster_row(casualty: Any, spawn_time: float) -> Dict[str, Any]:
         "severity_score": float(casualty.severity_score),
         "priority_value": int(casualty.priority_value),
         "treatment_time_modifier": float(casualty.treatment_time_modifier),
-        "is_mascal_casualty": bool(casualty.is_mascal_casualty),
-        "mascal_event_id": casualty.mascal_event_id,
         "frailty_threshold": casualty.metadata.get("frailty_threshold"),
-        "spawn_time": float(spawn_time),
     }
 
 

@@ -168,11 +168,13 @@ class EnsembleBuilder:
                 base_seed + i (legacy scheme, unchanged). Keyed mode: the
                 master seed is constant across replications and replication
                 i enters the keyed root entropy as (master_seed, i).
-            patient_seed: CRN dual-seed support (S2 slice 0). In keyed mode,
-                when provided it becomes the master seed of the keyed root —
-                two ensembles sharing patient_seed and replication indices
-                draw identical per-entity randomness (paired arms). Inert in
-                shared mode (legacy behaviour preserved).
+            patient_seed: CRN dual-seed support (S2-D D2, dual-root). In
+                keyed mode, when provided it roots the IDENTITY axis while
+                base_seed keeps rooting the system axis — two ensembles
+                sharing patient_seed and replication indices carry the same
+                people ("same people, different weather"); None falls back
+                to base_seed (byte-exact no-op). Inert in shared mode
+                (legacy behaviour preserved).
             toggles: Simulation feature toggles.
             scenario_overrides: Dotted-path scenario edits applied to the
                 preset raw before every replication (S2 slice 1), e.g.
@@ -214,20 +216,21 @@ class EnsembleBuilder:
 
         for i in range(self.n_replications):
             if self.toggles.rng_mode == "keyed":
-                # Replication enters the ROOT entropy, not the seed: pairing
-                # across doctrine arms needs identical (master, i) roots.
-                master = (
-                    self.patient_seed
-                    if self.patient_seed is not None
-                    else self.base_seed
-                )
+                # Replication enters the ROOT entropy, not the seed. Dual
+                # root (S2-D D2): base_seed roots the system axis,
+                # patient_seed the identity axis — arms sharing
+                # patient_seed carry the same people on schedules drawn
+                # from their own base_seed.
                 logger.info(
-                    "Ensemble replication %d/%d (keyed root=(%d, %d))",
-                    i + 1, self.n_replications, master, i,
+                    "Ensemble replication %d/%d (keyed roots: system=(%s, %d)"
+                    " identity=(%s, %d))",
+                    i + 1, self.n_replications, self.base_seed, i,
+                    self.patient_seed if self.patient_seed is not None
+                    else self.base_seed, i,
                 )
                 engine = build_engine_from_dict(
-                    scenario, seed=master, toggles=self.toggles,
-                    replication_index=i,
+                    scenario, seed=self.base_seed, toggles=self.toggles,
+                    replication_index=i, patient_seed=self.patient_seed,
                 )
             else:
                 rep_seed = self.base_seed + i

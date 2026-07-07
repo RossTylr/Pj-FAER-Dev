@@ -111,7 +111,12 @@ class ArrivalProcess:
     ) -> None:
         self.env = env
         self.config = config
-        self.rng = rng or np.random.default_rng()
+        if rng is None:
+            raise ValueError(
+                "ArrivalProcess requires a seeded rng — "
+                "unseeded fallback removed (S2-D D4)"
+            )
+        self.rng = rng
         # S2 0c-3: system-axis keyed streams — arrivals draw from
         # (stream, occurrence) keys so no journey draw can shift them
         self.keyed_rng = keyed_rng

@@ -47,7 +47,12 @@ class LegacyCasualtyFactory:
         keyed_rng: Optional[KeyedRNGRoot] = None,
     ) -> None:
         self.context = context
-        self.rng = rng or np.random.default_rng()
+        if rng is None:
+            raise ValueError(
+                "LegacyCasualtyFactory requires a seeded rng — "
+                "unseeded fallback removed (S2-D D4)"
+            )
+        self.rng = rng
         self.id_prefix = id_prefix
         # S2 0c-2: keyed identity draws — when set, every eager attribute
         # draw is keyed (casualty_uid, purpose) instead of consuming the
@@ -209,7 +214,12 @@ class InvertedCasualtyFactory:
         self.injury_sampler = injury_sampler
         self.triage_bt = triage_bt
         self.bb = blackboard
-        self.rng = rng or np.random.default_rng()
+        if rng is None:
+            raise ValueError(
+                "InvertedCasualtyFactory requires a seeded rng — "
+                "unseeded fallback removed (S2-D D4)"
+            )
+        self.rng = rng
         self.id_prefix = id_prefix
         self.source_id = source_id
         self.keyed_rng = keyed_rng  # S2 0c-2: keyed identity draws

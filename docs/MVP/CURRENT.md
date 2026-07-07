@@ -7,14 +7,19 @@
      PHASE-2 NB extraction frontier, which is unchanged by the MVP build; MVP state is
      the prose below. -->
 
-*Single source of phase truth (RAIE v3). **Rev 3**, 7 Jul 2026 — S2 close-out. Replaces
-Rev 2; the stale `docs/CURRENT.md` marker host is deleted and the checker reads this file.*
+*Single source of phase truth (RAIE v3). **Rev 3.1**, 7 Jul 2026 — S2-D deviation
+closure atop Rev 3 (S2 close-out). Replaces Rev 2; the stale `docs/CURRENT.md` marker
+host is deleted and the checker reads this file.*
 
-**HEAD:** S2 close-out chain atop `4b28bad` — slice log in `docs/MVP/BUILD_S2.md`
-(as-built record). 153 tests green.
+**HEAD:** S2-D deviation-closure chain atop the S2 close-out (`ffdd257`) — instruction
+file `docs/MVP/BUILD_S2D.md`, as-built record in the feature commit's deviations footer.
+163 tests green.
 **Phase:** MVP build. F0 complete (O7 = scheduled debt, GM-2). S1.1 complete. **Step 2
 COMPLETE** (slice 0 keyed-draw architecture + slice 1 config machinery + tails), gate-
-ratified 2026-07-07 with deviations D2/D4/D6 disclosed on the register below.
+ratified 2026-07-07 with deviations D2/D4/D6 disclosed. **S2-D COMPLETE**: D2 dual-root
+BUILT (I-7 proper form, three clauses) · D4 lint + unconditional raise BUILT · D6
+deferred to the POLYBIUS lane · D1/D3/D5/D7 accepted as-built (D3 minuted: Exp(1) is
+the canonical Sellke frailty — as-built improves the spec).
 **Evidence status:** **COMPARISON LANE OPEN** (thaw minuted at 0e; scoped wording is
 normative: *casualty identity and arrival streams are provably config-invariant;
 journey-draw pairing is per-purpose* — I-2 certifies identity + arrival invariance, not
@@ -26,7 +31,8 @@ fractions, and an ITT variant alongside any conditional form; probe runs go thro
 F0.2 harness with the violation census attached.
 **Next authorisation decision:** Step 3 (multi-POI + routing semantics) interrogation —
 carries the standing transit question (does re-plan-on-promotion move dispatch order
-enough to make the transit provisional bite?) and the D2 dual-root ruling.
+enough to make the transit provisional bite?). The D2 dual-root ruling is discharged
+(S2-D); pre-build answers in `docs/MVP/S3_PREBUILD_ANSWERS.md`.
 **Sequence (locked):** S1.1 ✓ → Step 2 ✓ → Step 3 → Step 4 (PFC, own track) → 4b legacy
 retirement (GM-4) → Step 5a metric probes → Step 5 PoC.
 
@@ -34,9 +40,7 @@ retirement (GM-4) → Step 5a metric probes → Step 5 PoC.
 
 | Item | Intent | Trigger / vehicle |
 |---|---|---|
-| **D2: `patient_seed` dual-root semantics** (FINAL-v1 ◆: identity-root override — "same arrival schedule, different people"; as-built pins the single root) | RULE then possibly BUILD — axis-separated roots vs accept single-root | Gate ruling; if build, Step-3 entry (intrinsic plumbing) |
-| **D4: unseeded-fallback lint + keyed fallback-raise** (FINAL-v1 ◆ I-6 LINT; Q1 latent hazards incl. triage.py:42-43) | BUILD — lint-as-test is zero-src-lines; the keyed RAISE touches intrinsic constructors | Candidate FIRST item of next build session |
-| **D6: roster enrichment** (derived decision fields + key-schema version stamp; FINAL v1 specified ARRIVAL-emission assembly) | EXTEND — as-built roster is identity-only at create() | When the POLYBIUS parquet schema is defined |
+| **D6: roster enrichment — DEFERRED TO POLYBIUS LANE** (S2-D gate ruling: register row, not built; derived decision fields + key-schema version stamp; FINAL v1 specified ARRIVAL-emission assembly) | EXTEND — as-built roster is identity-PURE at create() (S2-D removed spawn_time + MASCAL provenance: system-axis facts; provenance columns may be re-added deliberately) | When the POLYBIUS parquet schema is defined |
 | **Transit keying = per-mode mission stream** (provisional, VR-1 arbitrated SUFFICIENT: ratio 776, leak 3/200 in 1/20 reps) | REVISIT iff a transit-dependent estimand shows weak pairing | Step-3 routing-semantics interrogation (re-plan-on-promotion dispatch-order question) |
 | **VR-1 follow-up: binding resource perturbation** (the +4-bed arm proved inert — byte-exact pairing, dispatch sensitivity unexercised) | DESIGN a binding perturbation for the PoC comparison shape | Step-5 PoC design |
 | LOC counting-convention calibration | LESSON — declarations state the convention (raw vs code-only; dual-mode duplication included) up front | Every future Rule-3 declaration |
@@ -55,6 +59,22 @@ retirement (GM-4) → Step 5a metric probes → Step 5 PoC.
 | Builder silent drops: or_tables/icu_beds/ventilators/has_lab | FIX before MMSL demand modelling | MMSL lane opening |
 | CROSSOVER_PROBES (commitment calendar · CP-SAT · Whittle · certificates · attribution ledger) | PARKED wholesale | EXP-IB-1000 lane |
 | maafi-protocol.skill three-way rubric polish | OPTIONAL, 10 min | Whenever |
+
+## CLOSED at S2-D (deviation closure, 7 Jul 2026 — BUILD_S2D.md)
+
+**D2 `patient_seed` dual-root** → **BUILT**: identity axis roots on
+`(patient_seed, replication_index)`, system axis on `(master_seed, replication_index)`;
+`patient_seed=None` aliases the system key object (byte-exact no-op by construction,
+zero golden diff). I-7 proper form: three clauses red-then-green + ensemble pairing +
+None-no-op corollary. Identity roster purified in passing (spawn_time + MASCAL
+provenance were system-axis facts inside the identity artefact — event log carries
+both; MASCAL-conditioned identity is generative-model design, documented at I-7
+clause 3). · **D4 unseeded-fallback lint + raise** → **BUILT**: AST lint over src/
+(`tests/test_rng_lint.py`) green after the 6-site census (triage.py:43, injury.py:163,
+arrivals.py:114, casualty_factory.py:50/:212, transport.py:206) converted to
+UNCONDITIONAL `ValueError` on `rng=None` (BUILD_S2D.md as amended); I-5 confirms
+byte-neutrality. · **D1/D3/D5/D7** → accepted as-built at the gate (D3 minute: Exp(1)
+canonical Sellke frailty).
 
 ## CLOSED at S2 (moved out of the register, closure on record)
 

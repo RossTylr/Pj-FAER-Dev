@@ -52,19 +52,24 @@ def _protocol_run(
     scenario=None,
     duration: float = 1440.0,
     replication_index: int = 0,
+    patient_seed=None,
+    max_patients: int = 10**6,
 ):
     """Undrained protocol run with pre-run access to the keyed root
     (run_to_log cannot poison before arrivals start)."""
     if scenario is not None:
-        engine = build_engine_from_dict(scenario, toggles=toggles, seed=seed)
+        engine = build_engine_from_dict(
+            scenario, toggles=toggles, seed=seed, patient_seed=patient_seed,
+        )
     else:
         engine = build_engine_from_preset(
             "coin", toggles=toggles, seed=seed,
             replication_index=replication_index,
+            patient_seed=patient_seed,
         )
     if poison is not None:
         engine._keyed_rng._poison = poison
-    engine.run(duration=0.0, max_patients=10**6)
+    engine.run(duration=0.0, max_patients=max_patients)
     engine.step(duration)
     raw = [EventSerializer.event_to_dict(e) for e in engine.event_store.query()]
     return engine, canonical_log(raw)
@@ -273,45 +278,155 @@ def test_i6_route_divergent_identity_invariance():
 
 
 # ---------------------------------------------------------------------------
-# I-7 — replication enters the root; patient_seed pins paired arms
+# I-7 — dual-root axis separation (proper form, S2-D D2)
 # ---------------------------------------------------------------------------
 
-def test_i7_replication_root_entropy():
-    """I-7: same (seed, replication) reproduces; different replication at
-    the same seed decorrelates; EnsembleBuilder keyed arms sharing
-    patient_seed draw identical randomness regardless of base_seed."""
-    _, log_r0 = _protocol_run(_keyed_toggles(), duration=480.0,
-                              replication_index=0)
-    _, log_r0b = _protocol_run(_keyed_toggles(), duration=480.0,
-                               replication_index=0)
-    _, log_r1 = _protocol_run(_keyed_toggles(), duration=480.0,
-                              replication_index=1)
-    assert log_digest(log_r0) == log_digest(log_r0b)
-    assert log_digest(log_r0) != log_digest(log_r1), (
-        "replication does not enter the root — ensemble arms correlate"
+def _arrival_times_blob(log) -> str:
+    """Byte-form of the ARRIVAL sim_times sequence."""
+    return json.dumps(
+        [e["sim_time"] for e in _arrivals(log)], default=str
     )
 
-    def _store_digests(snapshot):
-        out = []
-        for store in snapshot.stores:
-            raw = [EventSerializer.event_to_dict(e) for e in store.query()]
-            out.append(log_digest(canonical_log(raw)))
-        return out
+
+def test_i7_dual_root_axis_separation():
+    """I-7 (proper form, S2-D D2): identity axis roots on patient_seed
+    (fallback: master_seed); system axis roots on master_seed;
+    replication_index enters BOTH axes.
+
+    Clause 1 — patient_seed varied at fixed master: ARRIVAL sim_times
+    byte-identical, roster hashes DIFFER ("same schedule, different
+    people"). Doubles as the axis-classification detector: an identity
+    purpose wrongly placed on the system axis leaves the roster pinned
+    and fails the DIFFER clause; a system purpose wrongly placed on the
+    identity axis breaks the byte-identical clause.
+
+    Clause 2 — replication_index varied at fixed (master, patient_seed):
+    both axes differ.
+
+    Clause 3 — master_seed varied at fixed patient_seed (1 vs 999,
+    patient_seed=42): roster hashes byte-IDENTICAL ("same people"),
+    ARRIVAL sim_times DIFFER. Proper-form successor to the superseded
+    single-root pairing clause (S2 as-built, deviation D2). Capped runs:
+    "same people" is per-ordinal identity — the arrival PROCESS decides
+    how many spawn, so the census must be equalised by max_patients.
+    MASCAL disabled: cluster membership is a system-axis fact that the
+    generative model deliberately folds into identity (severity +mod,
+    triage promotion at creation), so byte-identity across masters holds
+    on the unconditioned population; the base keyed draws are identical
+    either way (witnessed: severity tails match under MASCAL to 16 dp).
+    """
+    # --- Clause 1: same schedule, different people -----------------------
+    e_p1, log_p1 = _protocol_run(_keyed_toggles(), duration=480.0,
+                                 patient_seed=43)
+    e_p2, log_p2 = _protocol_run(_keyed_toggles(), duration=480.0,
+                                 patient_seed=44)
+    assert _arrivals(log_p1), "vacuous: no arrivals"
+    assert _arrival_times_blob(log_p1) == _arrival_times_blob(log_p2), (
+        "ARRIVAL sim_times moved under patient_seed — system axis is "
+        "contaminated by the identity root"
+    )
+    assert roster_digest(e_p1.roster) != roster_digest(e_p2.roster), (
+        "roster pinned under patient_seed variation — identity axis is "
+        "not rooted on patient_seed"
+    )
+
+    # --- Clause 2: replication_index enters BOTH axes --------------------
+    e_r1, log_r1 = _protocol_run(_keyed_toggles(), duration=480.0,
+                                 patient_seed=43, replication_index=1)
+    assert _arrival_times_blob(log_p1) != _arrival_times_blob(log_r1), (
+        "replication does not enter the system axis"
+    )
+    assert roster_digest(e_p1.roster) != roster_digest(e_r1.roster), (
+        "replication does not enter the identity axis"
+    )
+
+    # --- Clause 3: same people, different schedule -----------------------
+    no_mascal = apply_scenario_overrides(get_preset_raw("coin"), {
+        "arrivals.enable_mascal": False,
+    })
+    e_m1, log_m1 = _protocol_run(_keyed_toggles(), seed=1, duration=1440.0,
+                                 patient_seed=42, max_patients=20,
+                                 scenario=no_mascal)
+    e_m2, log_m2 = _protocol_run(_keyed_toggles(), seed=999, duration=1440.0,
+                                 patient_seed=42, max_patients=20,
+                                 scenario=no_mascal)
+    assert len(e_m1.roster) == 20 and len(e_m2.roster) == 20, (
+        "vacuous: census cap not reached — lengthen duration"
+    )
+    assert roster_digest(e_m1.roster) == roster_digest(e_m2.roster), (
+        "roster hash differs at fixed patient_seed — paired people broken"
+    )
+    assert _arrival_times_blob(log_m1) != _arrival_times_blob(log_m2), (
+        "ARRIVAL sim_times pinned under master variation — system axis "
+        "is not rooted on master_seed"
+    )
+
+
+def test_i7_ensemble_dual_root_pairing():
+    """I-7 at ensemble level: EnsembleBuilder passes base_seed to the
+    system axis and patient_seed to the identity axis (S2-D D2 — the
+    as-built substitution of the whole master is gone). Two arms with
+    different base_seed but shared patient_seed carry the SAME people on
+    DIFFERENT schedules. MASCAL disabled — cluster membership conditions
+    identity by design (see test_i7_dual_root_axis_separation)."""
+    def _arrival_events(snapshot):
+        raw = [
+            EventSerializer.event_to_dict(e)
+            for e in snapshot.stores[0].query()
+        ]
+        return _arrivals(canonical_log(raw))
 
     toggles = SimulationToggles(rng_mode="keyed")
+    no_mascal = {"arrivals.enable_mascal": False}
     arm_one = EnsembleBuilder(
-        "coin", n_replications=2, base_seed=1, patient_seed=42,
-        toggles=toggles,
-    ).run(duration=240.0, max_patients=20)
+        "coin", n_replications=1, base_seed=1, patient_seed=42,
+        toggles=toggles, scenario_overrides=no_mascal,
+    ).run(duration=1440.0, max_patients=20)
     arm_two = EnsembleBuilder(
-        "coin", n_replications=2, base_seed=999, patient_seed=42,
-        toggles=toggles,
-    ).run(duration=240.0, max_patients=20)
+        "coin", n_replications=1, base_seed=999, patient_seed=42,
+        toggles=toggles, scenario_overrides=no_mascal,
+    ).run(duration=1440.0, max_patients=20)
 
-    digests_one, digests_two = _store_digests(arm_one), _store_digests(arm_two)
-    assert digests_one == digests_two, (
-        "patient_seed does not pin the keyed root — paired arms broken"
+    arr_one, arr_two = _arrival_events(arm_one), _arrival_events(arm_two)
+    assert len(arr_one) == 20 and len(arr_two) == 20, (
+        "vacuous: census cap not reached"
     )
-    assert digests_one[0] != digests_one[1], (
-        "replications correlate within an ensemble"
+    times_one = [e["sim_time"] for e in arr_one]
+    times_two = [e["sim_time"] for e in arr_two]
+    assert times_one != times_two, (
+        "schedules coincide across base_seeds — patient_seed still pins "
+        "the whole root (single-root as-built semantics)"
+    )
+    def _identity_view(events):
+        return {
+            e["casualty_id"]: {k: v for k, v in e.items() if k != "sim_time"}
+            for e in events
+        }
+
+    assert _identity_view(arr_one) == _identity_view(arr_two), (
+        "per-casualty identity payloads differ at fixed patient_seed"
+    )
+
+
+def test_i7_patient_seed_none_noop():
+    """I-7 corollary (D2 no-op clause): patient_seed=None is a byte-exact
+    no-op. Structurally, the identity key IS the system key object when
+    patient_seed is None; behaviourally, an explicit patient_seed equal
+    to the master reproduces the None run byte-for-byte (the derived-key
+    path equals the fallback path). The O1 golden (test_oracles) polices
+    default-path equality with the pre-change digest."""
+    from faer_dev.core.rng import KeyedRNGRoot
+
+    root = KeyedRNGRoot(42, 0)
+    assert root._identity_key is root._key, (
+        "patient_seed=None must alias the system key — no-op by "
+        "construction"
+    )
+
+    _, log_none = _protocol_run(_keyed_toggles(), duration=480.0)
+    _, log_explicit = _protocol_run(_keyed_toggles(), duration=480.0,
+                                    patient_seed=42)
+    assert log_digest(log_none) == log_digest(log_explicit), (
+        "explicit patient_seed == master must be byte-identical to "
+        "patient_seed=None"
     )

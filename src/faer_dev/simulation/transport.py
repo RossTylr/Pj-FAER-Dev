@@ -203,7 +203,12 @@ class TransportPool:
     ) -> None:
         self.env = env
         self.config = config
-        self.rng = rng or np.random.default_rng()
+        if rng is None:
+            raise ValueError(
+                "TransportPool requires a seeded rng — "
+                "unseeded fallback removed (S2-D D4)"
+            )
+        self.rng = rng
         # S2 0c-3: trip times are vehicle-mission draws (the batch
         # coordinator may serve several patients per trip), so TRANSIT is
         # keyed as a per-mode mission stream, not per casualty

@@ -131,6 +131,7 @@ def build_engine_from_dict(
     toggles: Optional[SimulationToggles] = None,
     seed: Optional[int] = None,
     replication_index: int = 0,
+    patient_seed: Optional[int] = None,
 ) -> PolyhybridEngine:
     """Build a PolyhybridEngine from a raw scenario dictionary.
 
@@ -141,6 +142,8 @@ def build_engine_from_dict(
         replication_index: Ensemble replication ordinal; enters the keyed
             RNG root entropy as (seed, replication_index). Ignored by the
             shared-mode stream (S2 slice 0).
+        patient_seed: Identity-axis root override (S2-D D2). None is a
+            byte-exact no-op (identity axis falls back to the master).
 
     Returns:
         Configured PolyhybridEngine ready to run.
@@ -213,6 +216,7 @@ def build_engine_from_dict(
         config=deepcopy(scenario),
         toggles=toggles,
         replication_index=replication_index,
+        patient_seed=patient_seed,
     )
 
     # Scenario version stamp (S2 slice 1) — post-construction attribute,
@@ -313,6 +317,7 @@ def build_engine_from_preset(
     toggles: Optional[SimulationToggles] = None,
     seed: Optional[int] = None,
     replication_index: int = 0,
+    patient_seed: Optional[int] = None,
 ) -> PolyhybridEngine:
     """Build a PolyhybridEngine from a named preset.
 
@@ -337,6 +342,7 @@ def build_engine_from_preset(
     raw = load_config(yaml_path)
     return build_engine_from_dict(
         raw, toggles=toggles, seed=seed, replication_index=replication_index,
+        patient_seed=patient_seed,
     )
 
 
