@@ -63,6 +63,10 @@ testing pattern, the HC-*/MC-* constraints and verification standards live in `A
    never a code branch per doctrine. Branching breaks CRN: different paths draw different
    random numbers, and the measured difference stops being attributable to the policy.
    Nothing violates this today; this rule keeps it that way.
+   *Addendum (ratified at the S2 gate, 2026-07-07):* a valid comparison requires
+   "identical code paths AND per-entity keyed streams AND tested invariants" — the keyed
+   RNG architecture (BUILD_S2 slice 0) and invariants I-1–I-7 (`tests/test_rng_keyed.py`)
+   are load-bearing parts of this rule, not optional extras.
 
 ## Standing Constraints (verified, for Phase 2)
 

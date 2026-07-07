@@ -249,3 +249,50 @@ def test_t5_g_valid_combinations_construct():
         enable_capability_routing=True,
     )
     SimulationToggles()
+
+
+# ---------------------------------------------------------------------------
+# T-5-8 — mixed-caseload killer variant (S2 tail: over-filtering control)
+# ---------------------------------------------------------------------------
+
+def test_t5_8_mixed_caseload_no_overfiltering():
+    """T-5-8: with a NATURAL mixed triage stream on the killer topology,
+    the capability filter diverts only the surgical demand.
+
+    Completes the killer/coin complementarity (S2 tail): the forced
+    100%-surgical killer proves under-filtering is caught (T-5-1); this
+    variant proves the filter does not OVER-fire — non-surgical
+    casualties still treat at the lighter, non-surgical R2-A while every
+    surgical treatment stays at R2-B."""
+    scenario = _killer_scenario(r2a_surgical=False)
+    engine = build_engine_from_dict(
+        scenario, toggles=_toggles(graph=True, capability=True), seed=42,
+    )
+    engine.run(duration=0.0, max_patients=60)
+    engine.step(600.0)
+    engine.arrival_process._max_arrivals = engine.arrival_process.count
+
+    def _count(event_type: str) -> int:
+        return len(engine.event_store.events_of_type(event_type))
+
+    deadline = engine.env.now + 24 * 60.0
+    while _count("ARRIVAL") != _count("DISPOSITION"):
+        assert engine.env.now < deadline, "mixed killer failed to drain"
+        engine.step(60.0)
+
+    raw = [EventSerializer.event_to_dict(e) for e in engine.event_store.query()]
+    log = canonical_log(raw)
+    treats = [e for e in log if e["event_type"] == "TREATMENT_START"]
+    surgical = [e for e in treats if e["triage"] == "T1_SURGICAL"]
+    non_surgical_at_r2a = [
+        e for e in treats
+        if e["triage"] != "T1_SURGICAL" and e["facility_id"] == "R2-A"
+    ]
+    assert surgical, "vacuous: no surgical casualty in the mixed stream"
+    assert non_surgical_at_r2a, (
+        "OVER-filtering: no non-surgical treatment at the non-surgical "
+        "facility — capability filter is diverting everyone"
+    )
+    assert all(e["facility_id"] == "R2-B" for e in surgical), (
+        "UNDER-filtering: surgical treatment at non-surgical R2-A"
+    )
