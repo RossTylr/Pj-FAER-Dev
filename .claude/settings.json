@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "MultiEdit(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "TodoRead(*)",
+      "TodoWrite(*)",
+      "WebFetch(*)",
+      "NotebookRead(*)",
+      "NotebookEdit(*)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)"
+    ]
+  }
+}
