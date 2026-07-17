@@ -1,16 +1,22 @@
 # AGENTS.md — On-demand reference for Pj-FAER-Dev
 
 Tier-B guidance: load when relevant. Tier-A inviolables and the load gate live in `CLAUDE.md`;
-the active phase/step lives in `docs/CURRENT.md`.
+the active phase/step lives in `docs/MVP/CURRENT.md` (repointed at BUILD_UV — the old
+`docs/CURRENT.md` was deleted at the S2 reconciliation, `ffdd257`).
 
 ## Coding Style
 
-- Python 3.10+, type hints on all public functions
+- Python 3.12+, type hints on all public functions (floor raised at BUILD_UV; the old
+  "3.10+" was never true — runtime floor is 3.11, dev stack needs 3.12, UV_EVALUATION.md
+  §3.1. `.python-version` pins the exact patch actually used)
 - Frozen dataclasses for decision objects (`@dataclass(frozen=True)`)
 - Protocols for interfaces (`typing.Protocol`)
 - Enums for decision outcomes
 - No global state. No module-level RNG. No dict iteration order dependence.
-- `ruff` for linting (line-length=100)
+- `ruff` for linting (line-length=100, target-version=py312); run as `uv run ruff check .`.
+  Carries 230 pre-existing findings, unchanged by the py312 bump and by nothing enforced —
+  ruff is not in the 163 and there is no CI (register row at BUILD_UV)
+- Environment is uv-managed: `uv run <cmd>`, `uv add` to add a dep, never `pip` — CLAUDE.md Rule 9
 
 ## Testing Pattern
 

@@ -9,14 +9,22 @@ Implements the "Tidy, Decouple, Then Plug" architecture from a multi-LLM Design 
 
 ## Quick Start
 
+Requires [uv](https://docs.astral.sh/uv/). The interpreter (pinned to an exact patch in
+`.python-version`) and every dependency (version- and hash-pinned in `uv.lock`) are fetched
+for you — there is no venv ritual, no `pip` step, and no Homebrew in the reproducibility
+loop.
+
 ```bash
 git clone https://github.com/RossTylr/Pj-FAER-Dev.git
 cd Pj-FAER-Dev
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-streamlit run demo_app/app.py       # demo app
-jupyter lab notebooks/              # proof notebooks
+uv sync --extra dev --extra roster    # builds .venv from uv.lock — exact, reproducible
+uv run pytest                         # 163 green
+uv run streamlit run demo_app/app.py  # demo app
+uv run jupyter lab notebooks/         # proof notebooks
 ```
+
+Dependencies enter via `uv add`, never `pip install` — `uv sync` prunes anything not in the
+lock, so a pip install silently vanishes. See CLAUDE.md Rule 9.
 
 ## Architecture
 

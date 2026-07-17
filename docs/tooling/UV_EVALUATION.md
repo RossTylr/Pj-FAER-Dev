@@ -1,9 +1,18 @@
 # uv Environment Evaluation — Pj-FAER-Dev
 
-> **Status:** evaluation only, ratified parameters recorded, **migration NOT executed.**
-> Drafted 2026-07-13 at the S2→S3 seam (S2-D closed at f4b3f8b, 163 green, clean tree;
-> BUILD_S3 unauthorised). All version/floor claims below were verified against PyPI
-> metadata and the live repo on the drafting date, not quoted from the source article.
+> **Status: EXECUTED 2026-07-17** at `docs/tooling/BUILD_UV.md` — gate green on all five
+> items, zero golden diff. This file is preserved as the *ratifying evaluation*, not as
+> current fact: §4's outline is superseded by BUILD_UV, which records six corrections to the
+> text below (UV-1…UV-6 — notably §3.5's cluster count, which is 5 not 7, and §4 step 4's
+> golden check, which is vacuous). §2's "Current state" table is now history. §3.3's risk
+> calculus was inverted by the machine move: with Homebrew on 3.14.6, migrating became the
+> conservative option, and both interpreter axes are now characterised inert rather than
+> assumed (BUILD_UV §5).
+>
+> *Status as drafted, preserved:* evaluation only, ratified parameters recorded, **migration
+> NOT executed.** Drafted 2026-07-13 at the S2→S3 seam (S2-D closed at f4b3f8b, 163 green,
+> clean tree; BUILD_S3 unauthorised). All version/floor claims below were verified against
+> PyPI metadata and the live repo on the drafting date, not quoted from the source article.
 
 ## 1. Verdict
 

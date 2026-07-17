@@ -59,6 +59,9 @@ retirement (GM-4) → Step 5a metric probes → Step 5 PoC.
 | Builder silent drops: or_tables/icu_beds/ventilators/has_lab | FIX before MMSL demand modelling | MMSL lane opening |
 | CROSSOVER_PROBES (commitment calendar · CP-SAT · Whittle · certificates · attribution ledger) | PARKED wholesale | EXP-IB-1000 lane |
 | maafi-protocol.skill three-way rubric polish | OPTIONAL, 10 min | Whenever |
+| **Docker pull-forward** (UV-6: named only inside UV_EVALUATION.md §5, on no register until now; uv was its prerequisite and is now landed — the image becomes `uv sync --frozen --no-dev` over `uv.lock`, ~10 lines) | BUILD — unblocked by BUILD_UV; the lockfile is the input that makes the Dockerfile trivial | Whenever scheduled; own mini instruction file |
+| **Constraint-set retirement** (`[tool.uv] constraint-dependencies` is the 139-pin freeze, held temporarily so the first resolve could not move a version) | DROP + upgrade deliberately, gated by the same test+golden verification | A later, separately-authorised upgrade commit — never incidental |
+| **ruff debt: 230 findings, unenforced** (identical at py310 and py312 — the BUILD_UV target bump caused none; ruff is not in the 163 and there is no CI, so nothing runs them) | DECIDE — adopt-and-fix, ratchet, or drop ruff; a linter nothing runs is a claim, not a control | Whenever; natural companion to a CI lane |
 
 ## CLOSED at S2-D (deviation closure, 7 Jul 2026 — BUILD_S2D.md)
 

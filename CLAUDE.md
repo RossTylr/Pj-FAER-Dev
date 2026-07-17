@@ -68,6 +68,21 @@ testing pattern, the HC-*/MC-* constraints and verification standards live in `A
    RNG architecture (BUILD_S2 slice 0) and invariants I-1–I-7 (`tests/test_rng_keyed.py`)
    are load-bearing parts of this rule, not optional extras.
 
+9. **uv owns the environment — never `pip install` into `.venv`.** The environment is
+   declared by `pyproject.toml`, pinned by `uv.lock` + `.python-version`, and materialised
+   by `uv sync`. `uv sync` PRUNES anything not in the lock, so an ad-hoc `pip install`
+   vanishes silently at the next sync and reintroduces exactly the drift uv was adopted to
+   end — a failure mode that is invisible until it isn't. Every dependency enters via
+   `uv add` (one-offs: `uv run --with <pkg>`), and the lock diff is reviewed in the commit
+   like any other artefact. Run everything as `uv run <cmd>`. The interpreter is pinned to
+   an exact patch in `.python-version`; moving it is a deliberate, gated commit with the
+   golden digest re-verified — never an incidental upgrade. Both interpreter axes are
+   characterised as inert to the goldens (BUILD_UV §5: distributor and patch, each tested
+   as a single variable against the Homebrew-3.14.4-origin golden) — that is a measured
+   property, not a licence to drift.
+   *(Canonical home of the environment rule — UV_EVALUATION.md §3.4, executed at
+   `docs/tooling/BUILD_UV.md`.)*
+
 ## Standing Constraints (verified, for Phase 2)
 
 - **Event bus (C6):** the bus logs-but-swallows subscriber exceptions
