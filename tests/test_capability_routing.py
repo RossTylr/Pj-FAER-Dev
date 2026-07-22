@@ -78,7 +78,7 @@ def _run_killer(toggles, *, r2a_surgical: bool = False, seed: int = 42,
     unchanged (CRN preserved) and the resulting casualty is overwritten to
     T1_SURGICAL — the 100%-surgical population AC-5.1 asks for.
     Drain loop mirrors tests/harness.run_to_log (window close via
-    ``_max_arrivals``, the established test-level seam).
+    ``engine.close_arrival_window()``, the engine-level seam).
     """
     scenario = _killer_scenario(r2a_surgical=r2a_surgical)
     engine = build_engine_from_dict(scenario, toggles=toggles, seed=seed)
@@ -95,7 +95,7 @@ def _run_killer(toggles, *, r2a_surgical: bool = False, seed: int = 42,
 
     engine.run(duration=0.0, max_patients=max_patients)
     engine.step(600.0)
-    engine.arrival_process._max_arrivals = engine.arrival_process.count
+    engine.close_arrival_window()
 
     def _count(event_type: str) -> int:
         return len(engine.event_store.events_of_type(event_type))
@@ -270,7 +270,7 @@ def test_t5_8_mixed_caseload_no_overfiltering():
     )
     engine.run(duration=0.0, max_patients=60)
     engine.step(600.0)
-    engine.arrival_process._max_arrivals = engine.arrival_process.count
+    engine.close_arrival_window()
 
     def _count(event_type: str) -> int:
         return len(engine.event_store.events_of_type(event_type))

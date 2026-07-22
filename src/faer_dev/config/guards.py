@@ -52,6 +52,34 @@ def require_role_presence(scenario: Dict[str, Any]) -> None:
         )
 
 
+def require_single_poi(scenario: Dict[str, Any]) -> None:
+    """INTERIM (BUILD_S3 slice 0, LIFTED at slice 2).
+
+    The engine binds exactly one ``ArrivalProcess`` to one scalar ``_poi_id``,
+    so a second POI is parsed, added to the network, and then silently
+    starved — it never receives an arrival. Until the N-instance wiring
+    lands, say so at construction rather than let a two-POI scenario report
+    a plausible single-POI run.
+    """
+    facilities = scenario.get("facilities") or []
+    declared = {
+        str(f.get("id")) for f in facilities
+        if str(f.get("role", "")).upper() in ("POI", "0")
+    }
+    synthesised = {
+        str(e.get("from")) for e in scenario.get("edges") or []
+        if str(e.get("from", "")).upper().startswith("POI")
+    } - {str(f.get("id")) for f in facilities}
+    total = len(declared | synthesised)
+    if total > 1:
+        raise ConfigurationError(
+            f"Scenario declares {total} POIs ({sorted(declared | synthesised)}); "
+            "multi-POI wiring lands at BUILD_S3 slice 2. Until then only the "
+            "first POI would receive arrivals and the rest would be silently "
+            "starved."
+        )
+
+
 def require_analysis_toggles(toggles: Any) -> None:
     """GM-3 capability-ON interim rule: every analysis/doctrine scenario
     sets capability (+extracted) routing until the legacy-walk retirement

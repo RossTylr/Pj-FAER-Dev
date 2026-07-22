@@ -235,6 +235,9 @@ class PolyhybridEngine:
         self._mascal_events: List[MASCALEvent] = []
         self._poi_id: Optional[str] = None
         self._arrivals_started = False
+        # POIs the builder materialised from an edge endpoint, not declared
+        # in the scenario's facilities list (see _select_arrival_poi).
+        self._synthesised_poi_ids: set[str] = set()
 
         # Facility queues (created when facilities are added)
         self.queues: Dict[str, FacilityQueue] = {}
@@ -289,9 +292,18 @@ class PolyhybridEngine:
         if self.toggles.enable_vitals or self.toggles.enable_atmist:
             self._init_clinical_subsystems()
 
-    def add_facility(self, facility: Facility) -> None:
-        """Add a facility to the network and create its queue."""
+    def add_facility(
+        self, facility: Facility, *, synthesised: bool = False
+    ) -> None:
+        """Add a facility to the network and create its queue.
+
+        ``synthesised`` marks a facility the builder materialised from an
+        edge endpoint rather than one the scenario declared — see
+        ``_select_arrival_poi``.
+        """
         self.network.add_facility(facility)
+        if synthesised and facility.role == Role.POI:
+            self._synthesised_poi_ids.add(facility.id)
         if facility.role != Role.POI and facility.beds > 0:
             self.queues[facility.id] = FacilityQueue(self.env, facility)
 
@@ -1318,25 +1330,39 @@ class PolyhybridEngine:
             mode, outbound_time + total_downtime
         )
 
-    def _arrival_process(
-        self, poi_id: str, max_arrivals: Optional[int] = None
-    ):  # type: ignore[return]  # SimPy generator
-        """SimPy process: generate patient arrivals at POI.
+    def _select_arrival_poi(self) -> Optional[str]:
+        """Pick the POI arrivals spawn at — DECLARED first, synthesised last.
 
-        Uses the new ArrivalProcess with callback-driven casualty creation.
+        The builder materialises a POI for any undeclared POI-prefixed edge
+        source and inserts it BEFORE the declared facilities, so a bare
+        insertion-order scan let an undeclared source silently steal the
+        arrival stream from the scenario's real POI (measured: coin's digest
+        moved). A synthesised POI is used only when the scenario declares
+        none; the feature is kept, its precedence is not.
         """
-        self._poi_id = poi_id
-        self.arrival_process = ArrivalProcess(
-            env=self.env,
-            config=self._arrival_config,
-            rng=self._rng,
-            on_arrival=self._handle_arrival,
-            on_mascal=self._handle_mascal,
-            keyed_rng=self._keyed_rng,
-        )
-        self.arrival_process.start(max_arrivals=max_arrivals)
-        # Yield forever — ArrivalProcess manages its own SimPy processes
-        yield self.env.timeout(float("inf"))
+        pois = [
+            fid for fid, f in self.network.facilities.items()
+            if f.role == Role.POI
+        ]
+        declared = [p for p in pois if p not in self._synthesised_poi_ids]
+        synthesised = [p for p in pois if p in self._synthesised_poi_ids]
+        if declared and synthesised:
+            logger.warning(
+                "Scenario declares POI(s) %s and also synthesises %s from "
+                "edge sources; arrivals spawn at the declared %s.",
+                declared, synthesised, declared[0],
+            )
+        return (declared or synthesised or [None])[0]
+
+    def close_arrival_window(self) -> None:
+        """Freeze the arrival lifetime cap at the count already generated.
+
+        The single seam every drain path uses to stop new arrivals without
+        advancing time. Scalar today; when slice 2 makes the engine hold N
+        arrival processes this becomes a loop and no caller changes.
+        """
+        if self.arrival_process is not None:
+            self.arrival_process._max_arrivals = self.arrival_process.count
 
     def run(
         self,
@@ -1366,10 +1392,7 @@ class PolyhybridEngine:
             self._poi_id = poi_id
 
         if self._poi_id is None:
-            for fid, facility in self.network.facilities.items():
-                if facility.role == Role.POI:
-                    self._poi_id = fid
-                    break
+            self._poi_id = self._select_arrival_poi()
 
         if self._poi_id and not self._arrivals_started:
             self.arrival_process = ArrivalProcess(

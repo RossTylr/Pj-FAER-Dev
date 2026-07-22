@@ -12,7 +12,11 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from faer_dev.config.guards import require_facilities, require_role_presence
+from faer_dev.config.guards import (
+    require_facilities,
+    require_role_presence,
+    require_single_poi,
+)
 from faer_dev.config.loader import load_config
 from faer_dev.core.enums import OperationalContext, Role
 from faer_dev.core.exceptions import ConfigurationError
@@ -151,6 +155,7 @@ def build_engine_from_dict(
     # Guard family (S2 slice 1): fail at construction, never mid-run
     require_facilities(scenario)
     require_role_presence(scenario)
+    require_single_poi(scenario)  # INTERIM — lifted at BUILD_S3 slice 2
 
     context = _parse_context(
         _first_non_none(
@@ -268,7 +273,7 @@ def build_engine_from_dict(
 
     for poi_id in sorted(poi_sources):
         poi = Facility(id=poi_id, name="Point of Injury", role=Role.POI, beds=0)
-        engine.add_facility(poi)
+        engine.add_facility(poi, synthesised=True)
 
     for fac_config in facilities:
         coords = fac_config.get("coordinates", fac_config.get("position", [0, 0]))

@@ -131,9 +131,9 @@ def check_parity_drift(failures: list[str], current_step: str) -> None:
                 green_beyond.append(step_id)
     if green_beyond:
         fail(failures,
-             f"parity-drift: docs/CURRENT.md declares '{current_step}' (idx {declared_idx}) "
+             f"parity-drift: docs/MVP/CURRENT.md declares '{current_step}' (idx {declared_idx}) "
              f"but later step(s) are parity-GREEN: {green_beyond}. You are further along than "
-             f"the marker admits — advance docs/CURRENT.md.")
+             f"the marker admits — advance docs/MVP/CURRENT.md.")
 
 
 def main() -> int:
