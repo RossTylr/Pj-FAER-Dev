@@ -278,7 +278,12 @@ def test_count_pois_counts_declared_and_synthesised():
 @pytest.mark.slow
 def test_ac_1_1_spawn_proportions():
     """AC-1.1: two POIs weighted 0.7 / 0.3; assert the realised spawn
-    proportion is 0.7 / 0.3 +/- 0.05 over replications.
+    proportion is 0.7 / 0.3 +/- 0.05 over the AC's 100 replications.
+
+    Ran at 40 reps when it first landed in slice 2 — the AC says 100, and
+    that miss went untabled at the alpha gate. Corrected here as a declared
+    beta rider; the 40-rep figures stand as evidence, this is the
+    AC-conformant record.
 
     Weights are SHARES of the theatre rate (S3-AMEND-3), so the theatre
     total is preserved and the MASCAL detector's tuning is untouched.
@@ -298,7 +303,7 @@ def test_ac_1_1_spawn_proportions():
     scenario = _two_poi_scenario()
     cap = 500
     north = south = 0
-    for rep in range(40):
+    for rep in range(100):  # the AC's stated replication count
         engine, log = run_to_log(
             scenario, duration_min=600.0, max_patients=cap, drain=True,
             seed=42, replication_index=rep,

@@ -118,3 +118,88 @@ replications, both inside ±0.05.
 
 **α DoD deviations table** is carried in the three slice commit bodies; the single red
 item was the LOC envelope, ruled above.
+
+---
+
+## SESSION β — M2 · metric integrity · transport
+
+Slices `8662f1f` (waypoints + golden-hour) → `9520e1f` (transport toggles + re-measure
+pre-registration) → `7d0b7f4` (re-measure results) → slice 5 (docs/AC, this commit).
+**201 passed, 1 deselected**; O1 byte-identical end-to-end.
+
+### Reds witnessed
+
+Slice 3's red was taken by **stashing `src/` and running the new suite against the
+pre-M2 engine**: 6 failed, 2 passed. The two passing are the controls that must hold on
+both sides — the defaults pin and the treat-stop stamp — so the red discriminates
+rather than blankets. The pre-M2 engine's own G7 output *is* the exploit, quantified:
+`reached R2 = 10/10; golden-hour tracked = 10/10`, with zero care delivered.
+
+### O1 diff caught and reverted — the zero-regen posture doing its job
+
+Declaring `waypoint` as a field on the `FacilityArrival` dataclass (to silence a
+cosmetic `UserWarning`) serialised `waypoint: False` onto **every** arrival including
+coin's, and moved the golden. Reverted immediately: the posture is that the payload
+stays untouched, not that the golden gets regenerated. The `metadata` route is
+retained and the warning is carried as a register row.
+
+### β riders — both discharged
+
+1. **AC-1.1 at the AC's 100 replications**: NORTH **4149/5932 = 0.6994**, SOUTH
+   **1783/5932 = 0.3006**. Both inside ±0.05. The slow test now runs 100 reps; the
+   40-rep α figures (0.7074 / 0.2926) stand as prior evidence.
+2. **Typed-emitter arm** on the waypoint signature test: `metadata.waypoint` asserted
+   to survive BOTH emitter paths, parametrised `[legacy, typed]`.
+
+### The transport re-measure returned INCONCLUSIVE — and that is the finding
+
+The pre-registration (`9520e1f`) predates every number (`7d0b7f4`); git order is the
+witness. The pre-declared rule fired exactly as written, because contrast B came back
+INERT on every metric at every stage.
+
+Two of the three findings are **my own design errors, reported rather than corrected
+into a better-looking answer**:
+
+- **Contrast B was degenerate.** Its topology gave every node exactly one onward edge,
+  so `enable_graph_routing` on and off were the same policy and the arms were
+  identical by construction. It exercised 189 holds — the divert machinery genuinely
+  ran — but never varied the thing the contrast existed to vary.
+- **`transit_total` is not transit-draw-dependent.** Identical variance ratio (94.07,
+  `var_paired` 11966.9 to six figures) with scoping ON and OFF was the tell:
+  `total_transit_time` accumulates `get_travel_time()`, which returns deterministic
+  `base_time`. Transit *draws* set vehicle availability, not patient transit duration.
+
+The third is about the code: **batched turnaround costs throughput** — 2/40
+replications failed to drain with it ON, versus 40/40 both-OFF and at stage 1. Its
+GM-4 default-flip therefore needs a capacity review, not just a toggle change.
+
+**Ruling drafted for the human: RETAIN and CARRY the transit provisional.** It is not
+evidenced sufficient by this run; it is untested by it. Re-run at Step 5 with a
+branching two-POI topology and a vehicle-side estimand.
+
+---
+
+## S3 OUTCOME
+
+**Step 3 is COMPLETE.** Three gated sessions (R ungated, α on gate word 1, β on gate
+word 2), eight commits, **zero golden regeneration**.
+
+| Delivered | Where |
+|---|---|
+| Doctrine ruling signed and committed | `ROUTING_SEMANTICS_NOTE.md` (D-A / D-B / D-C) |
+| M3 boundary recompute + hold-state truth | slice 1 — T-5-5b inverted to `== 0` |
+| Multi-POI, N arrival processes | slice 2 — single-POI bytes preserved, proven by test |
+| M2 waypoints + golden-hour integrity | slice 3 — T-5-7w inverts, exploit pinned |
+| Transport physics behind two toggles | slice 4 — both-OFF byte-identity asserted |
+| AC-1.1/1.2/1.4 amended | slice 5 — S3-AMEND-1/2/3 verbatim |
+
+**Suite:** 163 → 201 (+38), 1 deselected. **O1:**
+`d6546fbffb580bc508ebff37adab5c312c50cad0bfa92d99e0f6ac2d0d907479` throughout.
+
+**Left open, deliberately:** the transit provisional (carried, trigger live) · path
+purity at defaults (narrowed by design) · platform care-levels (ruled axis ≠ built
+axis, HUMAN VETO open) · demotion unreachable (doctrine-vs-implementation) · the
+emitter field-parity gap · three GM-4 default-flips, one of which needs a capacity
+review.
+
+**S3 closes the last heavy intrinsic step.** Step 4 and GM-4 remain unauthorised.

@@ -90,16 +90,31 @@ and each POI feeds its nearest R1.
 ```
 AC-1.1   Configure two POIs with arrival weights 0.7 / 0.3. Run 100 reps.
          Assert spawn proportion is 0.7 / 0.3 ± 0.05.
+         CLARIFIED at S3: weights are shares of the theatre arrival rate
+         via arrivals.per_poi (Sum=1.0+/-eps guarded); per-POI MASCAL
+         generators inherit the split; the AC fixture runs
+         mascal_enabled=False (detector configurability = #30).
 
-AC-1.2   Configure POI-NORTH nearest to R1-ALPHA and POI-SOUTH nearest
-         to R1-BRAVO. Assert casualties from POI-NORTH predominantly
-         route to R1-ALPHA (nearest-facility logic holds).
+AC-1.2   Configure POI-NORTH with a shorter travel-time edge to R1-ALPHA
+         and POI-SOUTH with a shorter travel-time edge to R1-BRAVO (edges
+         encode nearness; coordinate geometry deferred — register). Assert
+         casualties from each POI predominantly route via their
+         shorter-edge R1 under graph routing. [AMENDED at S3: original
+         asserted an unbuilt coordinate mechanism — S3_FOLLOWUP Q18.3.]
 
 AC-1.3   INVARIANT: with two concurrent POI arrival processes, total
          DISPOSITION count still equals total ARRIVAL count.
 
 AC-1.4   Determinism: two-POI scenario reproduces byte-identical at
          seed=42 (concurrent processes don't break determinism).
+         AMENDED at S3: determinism alone is insufficient — with N>=2 POIs,
+         system-axis stream scoping (arrivals:<poi>, mascal_*:<poi>) is
+         MANDATORY for CRN pairing (Q11.4, measured). AC-1.4 asserts BOTH
+         (a) two-POI double-run digest identity at seed=42 and (b)
+         I-2-style paired invariance on a fixed two-POI scenario.
+         Single-POI scenarios retain legacy key forms (byte-compatibility,
+         Q11.4 verified). Cross-POI-count arm comparisons are guarded
+         invalid.
 ```
 
 ### 3rd — #10 Threat zones — INTRINSIC
