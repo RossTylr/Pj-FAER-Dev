@@ -113,3 +113,98 @@ discharged, replaced, or carried.
 ---
 
 *Pre-registration ends here. Results are appended below in a later commit.*
+
+---
+
+# RESULTS — executed 22 Jul 2026
+
+*Pre-registration above committed at `9520e1f`, before any ratio existed. Executed from
+a scratchpad outside the repo against the public harness; `n = 40`, seed 42,
+replication index as the pairing key. Arms differ ONLY in `enable_graph_routing`
+(a routing configuration), per contrast definition §3.*
+
+## Contrast A — routing pair (coin, single POI)
+
+`stamp 74609bad…:poi1`
+
+| Stage | reps used | `transit_total` VR | `golden_hour_rate` VR | `strat_share` VR |
+|---|---|---|---|---|
+| both-OFF (status quo) | 40/40 | 94.07 | 1.241 | INERT |
+| stage 1 (origin ON) | 40/40 | 94.07 | 1.088 | INERT |
+| stage 2 (both ON) | **38/40** | 68.89 | 1.135 | INERT |
+
+Golden-hour ITT, both flags off: arm A **161/984**, arm B **492/984**. At stage 1:
+arm A 157/984, arm B 439/984. At stage 2: arm A 122/881, arm B 234/881.
+
+## Contrast B — divert-exercising two-POI
+
+`stamp 4957e44a…:poi2` · 188–191 HOLD_START events per stage, so the divert machinery
+was genuinely exercised.
+
+| Stage | reps used | `transit_total` | `golden_hour_rate` | `strat_share` |
+|---|---|---|---|---|
+| both-OFF | 40/40 | **INERT** | **INERT** | **INERT** |
+| stage 1 | 40/40 | **INERT** | **INERT** | **INERT** |
+| stage 2 | 40/40 | **INERT** | **INERT** | **INERT** |
+
+`var_paired == 0` on every metric at every stage: the two arms produced **identical**
+results (arm A 38/1120 and arm B 38/1120 golden-hour ITT; 189 holds each).
+
+---
+
+## RULING, by the pre-declared decision rule (§6)
+
+**INCONCLUSIVE — escalate to the human.**
+
+§6 states: *"INCONCLUSIVE, escalate to the human in every other case, including any
+case where contrast B is INERT."* Contrast B is INERT on every metric at every stage.
+The rule fires exactly as written; the provisional is **neither discharged nor
+replaced** by this re-measure.
+
+**Recommendation to the human: RETAIN the provisional and carry it forward**, with the
+re-measure to be redesigned. The provisional is not evidenced *sufficient* by this
+run — it is simply untested by it.
+
+## Three findings, disclosed in full
+
+**1. Contrast B was a degenerate fixture — my design error, not a property of the
+code.** Its topology gives every node exactly ONE onward edge (POI-NORTH → R1-ALPHA →
+R2-MAIN → R3-REAR). With no branching there is no routing choice, so
+`enable_graph_routing` on and off are the same policy and the arms are identical by
+construction. The fixture exercised holds and diverts handsomely (189 of them) but
+never exercised the thing the *contrast* was supposed to vary. A valid contrast B
+needs a topology where the two routing modes can disagree — two capable R2s at
+different weights, as contrast A's coin preset has.
+
+**2. `transit_total` is not a transit-draw-dependent estimand.** Its variance ratio is
+identical (94.07, `var_paired` 11966.9 to six figures) with origin scoping ON and OFF,
+which is the tell. `patient.total_transit_time` accumulates
+`network.get_travel_time()`, which returns `base_time` — deterministic, explicitly not
+the congestion-adjusted weight and not a draw. Transit *draws* set vehicle
+availability, not patient transit duration. So the metric I pre-declared as "the
+directly transit-dependent estimand" is nothing of the kind. A future re-measure
+should use a vehicle-side estimand — queue wait for transport, or time-to-pickup.
+
+**3. Batched turnaround has a material throughput cost: 2/40 replications failed to
+drain.** Stage 2 (both flags ON) left reps 28 and 38 undrained within the harness's
++24 h allowance (`ARRIVAL=52 DISPOSITION=34` and `ARRIVAL=51 DISPOSITION=47`), on the
+graph arm only. Both-OFF and stage 1 drained 40/40. Those two replications are
+excluded from the stage-2 statistics, declared here rather than silently dropped —
+and the exclusion is itself the finding: unifying the two vehicle-downtime models is
+**not** a cosmetic change. Holding a batched vehicle for turnaround measurably reduces
+theatre throughput, which is the correct physical behaviour and precisely why the flag
+is separate from the keying change. Its default-flip needs a capacity review, not just
+a toggle.
+
+**A fourth, minor:** contrast A's `strat_share` is INERT at every stage (`var_paired`
+exactly 0). Under §5's declared rule that is evidence about the fixture, not a pairing
+success, and it is not quoted as one.
+
+## What this means for the register row
+
+The row reads *"REVISIT iff a transit-dependent estimand shows weak pairing."* This
+run did not test a transit-dependent estimand (finding 2) on a discriminating contrast
+(finding 1). The trigger conditions found at round B — M3 re-routing and multi-POI
+batch coupling — remain met and remain unexamined. The row should be carried forward
+with its trigger still live, and the re-measure re-run at Step 5 with a branching
+two-POI topology and a vehicle-side estimand.
