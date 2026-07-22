@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import logging
 import time as _time
+from dataclasses import replace
 from enum import Enum
+from functools import partial
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -140,8 +142,12 @@ class PolyhybridEngine:
         toggles: Optional[SimulationToggles] = None,
         replication_index: int = 0,
         patient_seed: Optional[int] = None,
+        arrival_weights: Optional[Dict[str, float]] = None,
     ) -> None:
         self.context = context
+        # AC-1.1: per-POI shares of the theatre arrival rate. None =
+        # every POI draws the whole rate (the single-POI case).
+        self._arrival_weights = arrival_weights
         self._rng = np.random.default_rng(seed)
         self.toggles = toggles or SimulationToggles()
         # S2 slice 0: keyed-draw root — replication enters the root entropy
@@ -186,22 +192,8 @@ class PolyhybridEngine:
             self._triage_bt = build_triage_tree()
             self._blackboard = SimBlackboard(name="engine")
 
-            self.casualty_factory = create_factory(
-                mode="inverted",
-                context=context,
-                rng=self._rng,
-                keyed_rng=self._keyed_rng,
-                injury_sampler=self._injury_sampler,
-                triage_bt=self._triage_bt,
-                blackboard=self._blackboard,
-            )
-        else:
-            self.casualty_factory = create_factory(
-                mode=self.toggles.factory_mode,
-                context=context,
-                rng=self._rng,
-                keyed_rng=self._keyed_rng,
-            )
+        self._factory_context = context
+        self.casualty_factory = self._build_factory()
 
         # S2 0c-2: eager identity roster (flag-gated; rows appended at
         # creation, trace-neutral — consumes no events, emits none)
@@ -230,13 +222,17 @@ class PolyhybridEngine:
             keyed_rng=self._keyed_rng,
         )
 
-        # Arrival process (created at run time when POI is known)
-        self.arrival_process: Optional[ArrivalProcess] = None
+        # Arrival processes, one per POI (created at run time when the POI
+        # set is known). BUILD_S3 slice 2: N instances. At N=1 every legacy
+        # form is preserved — bare stream keys, CAS-NNNN uids, int mascal ids.
+        self.arrival_processes: Dict[str, ArrivalProcess] = {}
+        self._poi_factories: Dict[str, Any] = {}
         self._mascal_events: List[MASCALEvent] = []
         self._poi_id: Optional[str] = None
+        self._poi_ids: List[str] = []
         self._arrivals_started = False
         # POIs the builder materialised from an edge endpoint, not declared
-        # in the scenario's facilities list (see _select_arrival_poi).
+        # in the scenario's facilities list (see _arrival_poi_ids).
         self._synthesised_poi_ids: set[str] = set()
 
         # Facility queues (created when facilities are added)
@@ -299,7 +295,7 @@ class PolyhybridEngine:
 
         ``synthesised`` marks a facility the builder materialised from an
         edge endpoint rather than one the scenario declared — see
-        ``_select_arrival_poi``.
+        ``_arrival_poi_ids``.
         """
         self.network.add_facility(facility)
         if synthesised and facility.role == Role.POI:
@@ -624,8 +620,15 @@ class PolyhybridEngine:
             )
             self.event_bus.publish(typed_event)
 
-    def _handle_arrival(self, record: ArrivalRecord) -> None:
-        """Handle an arrival event — create casualty and start journey."""
+    def _handle_arrival(
+        self, record: ArrivalRecord, poi_id: Optional[str] = None
+    ) -> None:
+        """Handle an arrival event — create casualty and start journey.
+
+        ``poi_id`` is closed over per ArrivalProcess, so a casualty starts
+        at the POI that generated it rather than at a shared engine scalar
+        — the seam that made a second POI silently starve.
+        """
         # Feed MASCALDetector for rate-based detection
         self.mascal_detector.record_arrival(record.time)
         was_active = self.mascal_detector.active
@@ -639,7 +642,8 @@ class PolyhybridEngine:
         elif not is_now and was_active:
             self._log_event_raw("MASCAL_DEACTIVATE", record.time, {})
 
-        patient = self.casualty_factory.create(record)
+        factory = self._poi_factories.get(poi_id) or self.casualty_factory
+        patient = factory.create(record)
         if self._keyed_rng is not None:
             # Sellke frailty threshold: eager identity draw, frozen to the
             # roster. Exp(1) races the cumulative deterioration hazard when
@@ -653,10 +657,10 @@ class PolyhybridEngine:
         if self._roster is not None:
             from faer_dev.data.roster import roster_row
             self._roster.append(roster_row(patient))
-        # Find the POI facility to start the journey
-        poi_id = self._poi_id
-        if poi_id:
-            self.env.process(self._patient_journey(patient, poi_id))
+        # Start the journey at the POI this arrival came from
+        start_facility = poi_id or self._poi_id
+        if start_facility:
+            self.env.process(self._patient_journey(patient, start_facility))
 
     @property
     def roster(self) -> Optional[List[Dict[str, Any]]]:
@@ -1382,15 +1386,57 @@ class PolyhybridEngine:
             mode, outbound_time + total_downtime
         )
 
-    def _select_arrival_poi(self) -> Optional[str]:
-        """Pick the POI arrivals spawn at — DECLARED first, synthesised last.
+    def _build_factory(self, id_prefix: str = ""):
+        """Construct a casualty factory in this engine's configured mode.
 
-        The builder materialises a POI for any undeclared POI-prefixed edge
-        source and inserts it BEFORE the declared facilities, so a bare
-        insertion-order scan let an undeclared source silently steal the
-        arrival stream from the scenario's real POI (measured: coin's digest
-        moved). A synthesised POI is used only when the scenario declares
-        none; the feature is kept, its precedence is not.
+        Extracted so multi-POI can build one factory per POI with a distinct
+        ``id_prefix``. Prefixes are the ONLY thing that makes N factories
+        safe: two unprefixed factories would both emit CAS-0001 and collide
+        on the identity key, which is blake2b of the uid string.
+        """
+        if self.toggles.factory_mode == "inverted":
+            return create_factory(
+                mode="inverted",
+                context=self._factory_context,
+                rng=self._rng,
+                keyed_rng=self._keyed_rng,
+                injury_sampler=self._injury_sampler,
+                triage_bt=self._triage_bt,
+                blackboard=self._blackboard,
+                id_prefix=id_prefix,
+                source_id=id_prefix or "default",
+            )
+        return create_factory(
+            mode=self.toggles.factory_mode,
+            context=self._factory_context,
+            rng=self._rng,
+            keyed_rng=self._keyed_rng,
+            id_prefix=id_prefix,
+        )
+
+    @property
+    def arrival_process(self) -> Optional[ArrivalProcess]:
+        """The first arrival process — the scalar view, kept for callers
+        that predate multi-POI. Use ``arrival_processes`` when N matters."""
+        return next(iter(self.arrival_processes.values()), None)
+
+    def close_arrival_window(self) -> None:
+        """Freeze each arrival lifetime cap at the count already generated.
+
+        The single seam every drain path uses to stop new arrivals without
+        advancing time — one loop over N processes, so callers are unchanged
+        from the scalar era.
+        """
+        for process in self.arrival_processes.values():
+            process._max_arrivals = process.count
+
+    def _arrival_poi_ids(self) -> List[str]:
+        """Every POI that spawns casualties, in network insertion order.
+
+        Declared POIs win outright: a synthesised POI (materialised by the
+        builder from an edge endpoint) is only used when the scenario
+        declares none — the slice-0 precedence rule, applied to the whole
+        set rather than just the first.
         """
         pois = [
             fid for fid, f in self.network.facilities.items()
@@ -1401,20 +1447,66 @@ class PolyhybridEngine:
         if declared and synthesised:
             logger.warning(
                 "Scenario declares POI(s) %s and also synthesises %s from "
-                "edge sources; arrivals spawn at the declared %s.",
-                declared, synthesised, declared[0],
+                "edge sources; arrivals spawn at the declared set.",
+                declared, synthesised,
             )
-        return (declared or synthesised or [None])[0]
+        return declared or synthesised
 
-    def close_arrival_window(self) -> None:
-        """Freeze the arrival lifetime cap at the count already generated.
+    def _arrival_config_for(self, poi_id: str) -> ArrivalConfig:
+        """This POI's share of the theatre arrival rate.
 
-        The single seam every drain path uses to stop new arrivals without
-        advancing time. Scalar today; when slice 2 makes the engine hold N
-        arrival processes this becomes a loop and no caller changes.
+        Weights are SHARES, not independent rates (AC-1.1): the theatre
+        total is preserved, which keeps MASCAL-detector tuning stable. The
+        MASCAL rate inherits the same split. No weight = the whole rate,
+        which is what every single-POI scenario gets.
         """
-        if self.arrival_process is not None:
-            self.arrival_process._max_arrivals = self.arrival_process.count
+        weight = (self._arrival_weights or {}).get(poi_id)
+        if weight is None:
+            return self._arrival_config
+        return replace(
+            self._arrival_config,
+            base_rate_per_hour=self._arrival_config.base_rate_per_hour * weight,
+            mascal_rate_per_hour=(
+                self._arrival_config.mascal_rate_per_hour * weight
+            ),
+        )
+
+    def _start_arrivals(self, max_patients: Optional[int]) -> None:
+        """Bind one ArrivalProcess per POI.
+
+        The asymmetry is deliberate and load-bearing. At N=1 the stream
+        scope, the factory id_prefix and the MASCAL id prefix are all None,
+        so the run is byte-identical to every digest committed to date. At
+        N>=2 all three are set: scoped keys because two instances sharing one
+        occurrence ladder destroys CRN pairing (Q11.4, measured), and
+        prefixed uids because two factories would otherwise both emit
+        CAS-0001 and collide on the identity key.
+
+        ``max_patients`` is a per-POI lifetime cap, not a theatre total.
+        """
+        poi_ids = [self._poi_id] if self._poi_id else self._arrival_poi_ids()
+        if not poi_ids:
+            return
+        self._poi_ids = poi_ids
+        self._poi_id = poi_ids[0]
+        plural = len(poi_ids) > 1
+
+        for poi in poi_ids:
+            if plural:
+                self._poi_factories[poi] = self._build_factory(id_prefix=poi)
+            self.arrival_processes[poi] = ArrivalProcess(
+                env=self.env,
+                config=self._arrival_config_for(poi),
+                rng=self._rng,
+                on_arrival=partial(self._handle_arrival, poi_id=poi),
+                on_mascal=self._handle_mascal,
+                keyed_rng=self._keyed_rng,
+                stream_scope=poi if plural else None,
+                mascal_id_prefix=poi if plural else None,
+            )
+        for poi in poi_ids:
+            self.arrival_processes[poi].start(max_arrivals=max_patients)
+        self._arrivals_started = True
 
     def run(
         self,
@@ -1437,26 +1529,22 @@ class PolyhybridEngine:
         _run_start = _time.monotonic()
 
         if poi_id is not None:
+            available = self._arrival_poi_ids()
+            if len(available) > 1:
+                raise ValueError(
+                    "poi_id override is single-POI only; this scenario "
+                    f"declares {len(available)} POIs ({available}). A "
+                    "multi-POI scenario spawns at every POI by design — "
+                    "pinning one would silently starve the rest."
+                )
             if self._arrivals_started and self._poi_id and poi_id != self._poi_id:
                 raise ValueError(
                     f"poi_id changed from {self._poi_id!r} to {poi_id!r} after arrivals started"
                 )
             self._poi_id = poi_id
 
-        if self._poi_id is None:
-            self._poi_id = self._select_arrival_poi()
-
-        if self._poi_id and not self._arrivals_started:
-            self.arrival_process = ArrivalProcess(
-                env=self.env,
-                config=self._arrival_config,
-                rng=self._rng,
-                on_arrival=self._handle_arrival,
-                on_mascal=self._handle_mascal,
-                keyed_rng=self._keyed_rng,
-            )
-            self.arrival_process.start(max_arrivals=max_patients)
-            self._arrivals_started = True
+        if not self._arrivals_started:
+            self._start_arrivals(max_patients)
 
         if duration > 0:
             self.env.run(until=self.env.now + duration)

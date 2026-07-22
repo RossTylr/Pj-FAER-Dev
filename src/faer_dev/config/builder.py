@@ -13,9 +13,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from faer_dev.config.guards import (
+    count_pois,
+    require_arrival_weights_sum,
     require_facilities,
     require_role_presence,
-    require_single_poi,
 )
 from faer_dev.config.loader import load_config
 from faer_dev.core.enums import OperationalContext, Role
@@ -127,7 +128,11 @@ def scenario_stamp(scenario: Dict[str, Any]) -> str:
     blob = json.dumps(
         scenario, sort_keys=True, separators=(",", ":"), default=str
     )
-    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(blob.encode("utf-8")).hexdigest()
+    # BUILD_S3 slice 2: POI count rides the stamp so a cross-arm comparison
+    # can refuse a key-schema mismatch (guards.require_comparable_arms)
+    # without re-reading the scenario dict.
+    return f"{digest}:poi{count_pois(scenario)}"
 
 
 def build_engine_from_dict(
@@ -155,7 +160,7 @@ def build_engine_from_dict(
     # Guard family (S2 slice 1): fail at construction, never mid-run
     require_facilities(scenario)
     require_role_presence(scenario)
-    require_single_poi(scenario)  # INTERIM — lifted at BUILD_S3 slice 2
+    require_arrival_weights_sum(scenario)
 
     context = _parse_context(
         _first_non_none(
@@ -214,6 +219,7 @@ def build_engine_from_dict(
         mascal_size_max=mascal_size_max,
         mascal_duration_minutes=mascal_duration,
     )
+    per_poi = arrivals_dict.get("per_poi") or None
     engine = PolyhybridEngine(
         context=context,
         arrival_config=arrival_config,
@@ -222,6 +228,9 @@ def build_engine_from_dict(
         toggles=toggles,
         replication_index=replication_index,
         patient_seed=patient_seed,
+        arrival_weights=(
+            {str(k): float(v) for k, v in per_poi.items()} if per_poi else None
+        ),
     )
 
     # Scenario version stamp (S2 slice 1) — post-construction attribute,

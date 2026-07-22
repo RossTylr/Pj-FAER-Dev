@@ -52,14 +52,12 @@ def require_role_presence(scenario: Dict[str, Any]) -> None:
         )
 
 
-def require_single_poi(scenario: Dict[str, Any]) -> None:
-    """INTERIM (BUILD_S3 slice 0, LIFTED at slice 2).
+def count_pois(scenario: Dict[str, Any]) -> int:
+    """How many POIs a scenario spawns from.
 
-    The engine binds exactly one ``ArrivalProcess`` to one scalar ``_poi_id``,
-    so a second POI is parsed, added to the network, and then silently
-    starved — it never receives an arrival. Until the N-instance wiring
-    lands, say so at construction rather than let a two-POI scenario report
-    a plausible single-POI run.
+    Declared POI facilities plus any POI-prefixed edge source the builder
+    would synthesise. One definition, used by both the arrival weights
+    guard and the scenario stamp, so they cannot disagree.
     """
     facilities = scenario.get("facilities") or []
     declared = {
@@ -70,14 +68,61 @@ def require_single_poi(scenario: Dict[str, Any]) -> None:
         str(e.get("from")) for e in scenario.get("edges") or []
         if str(e.get("from", "")).upper().startswith("POI")
     } - {str(f.get("id")) for f in facilities}
-    total = len(declared | synthesised)
-    if total > 1:
+    return len(declared | synthesised)
+
+
+def require_arrival_weights_sum(scenario: Dict[str, Any]) -> None:
+    """``arrivals.per_poi`` weights are SHARES and must sum to 1.0 +/- eps.
+
+    Weights preserve the theatre arrival total, which is what keeps MASCAL
+    detector tuning stable across POI counts (AC-1.1, S3-AMEND-3). Rates
+    that silently sum to 1.4 would inflate the whole theatre and no
+    assertion downstream would notice.
+
+    Mirrors SimulationConfig.validate_distribution's tolerance.
+    """
+    per_poi = (scenario.get("arrivals") or {}).get("per_poi")
+    if not per_poi:
+        return
+    total = sum(float(v) for v in per_poi.values())
+    if abs(total - 1.0) > 0.01:
         raise ConfigurationError(
-            f"Scenario declares {total} POIs ({sorted(declared | synthesised)}); "
-            "multi-POI wiring lands at BUILD_S3 slice 2. Until then only the "
-            "first POI would receive arrivals and the rest would be silently "
-            "starved."
+            f"arrivals.per_poi weights sum to {total:.4f}, not 1.0 "
+            f"(+/-0.01): {per_poi}. Weights are shares of the theatre "
+            "arrival rate, not independent rates."
         )
+    known = {str(f.get("id")) for f in scenario.get("facilities") or []}
+    unknown = {str(k) for k in per_poi} - known
+    if unknown:
+        raise ConfigurationError(
+            f"arrivals.per_poi names unknown facilities: {sorted(unknown)}"
+        )
+
+
+def require_comparable_arms(stamp_a: str, stamp_b: str) -> None:
+    """Two ensemble arms may only be compared at equal POI count.
+
+    The keying is asymmetric by design: a single-POI scenario keeps the
+    bare stream literals and CAS-NNNN uids (preserving every committed
+    digest), while N>=2 gets per-POI scoped streams and prefixed uids. Arms
+    that differ in POI count therefore differ in KEY SCHEMA, so their draws
+    are not paired and any measured difference is uninterpretable — the
+    Hard-Rule-8 failure mode, caught here rather than published.
+    """
+    a, b = poi_count_from_stamp(stamp_a), poi_count_from_stamp(stamp_b)
+    if a is not None and b is not None and a != b:
+        raise ConfigurationError(
+            f"cross-arm comparison at different POI counts ({a} vs {b}): "
+            "the arms use different RNG key schemas (bare stream literals "
+            "at N=1, POI-scoped at N>=2), so their draws are not paired. "
+            "Compare like with like."
+        )
+
+
+def poi_count_from_stamp(stamp: str) -> Any:
+    """Read the POI count a scenario stamp carries, or None if absent."""
+    _, _, suffix = str(stamp).partition(":poi")
+    return int(suffix) if suffix.isdigit() else None
 
 
 def require_analysis_toggles(toggles: Any) -> None:

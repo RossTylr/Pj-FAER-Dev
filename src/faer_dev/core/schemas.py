@@ -87,7 +87,7 @@ class Casualty(BaseModel):
 
     # MASCAL tracking
     is_mascal_casualty: bool = Field(default=False, description="Generated during a MASCAL event")
-    mascal_event_id: Optional[int] = Field(default=None, description="MASCAL event identifier")
+    mascal_event_id: Optional[int | str] = Field(default=None, description="MASCAL event identifier (POI-prefixed when plural)")
 
     # Arrival / priority
     arrival_time: float = Field(default=0.0, description="Simulation time of arrival at first facility")

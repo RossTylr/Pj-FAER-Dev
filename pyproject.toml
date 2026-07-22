@@ -55,6 +55,16 @@ target-version = "py312"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# BUILD_S3 slice 2 (G6). AC-1.1 needs many replications to resolve a spawn
+# proportion; that does not belong in a 1.4-second default suite. Slow tests
+# are deselected by default and run explicitly at a gate:
+#     uv run pytest -m slow
+# Every DoD from here on reports "N passed, M deselected" so a deselected
+# test cannot be mistaken for an absent one.
+markers = [
+    "slow: excluded from the default run; execute at a gate with -m slow",
+]
+addopts = '-m "not slow"'
 
 [tool.uv]
 # Temporary constraint set: the 139-pin freeze from the retired requirements.lock,

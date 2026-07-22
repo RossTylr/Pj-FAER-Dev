@@ -6,6 +6,8 @@ triage_distribution = WIRE (O2 polices the band; the wiring test here is
 the direct-shape check). Fixtures are inline dicts (house pattern).
 """
 
+from copy import deepcopy
+
 import pytest
 
 from faer_dev.config.builder import (
@@ -96,6 +98,32 @@ def test_scenario_stamp_deterministic_and_sensitive():
     assert engine.scenario_stamp == scenario_stamp(scenario)
     edited = apply_scenario_overrides(scenario, {"facilities.R1-A.beds": 5})
     assert scenario_stamp(edited) != engine.scenario_stamp
+
+
+def test_scenario_stamp_carries_poi_count():
+    """BUILD_S3 slice 2: POI-count sensitivity is now EXPECTED of the stamp.
+
+    The count rides the stamp so a cross-arm comparison can refuse a
+    key-schema mismatch without re-reading the scenario dict — see
+    guards.require_comparable_arms. Adding a POI must therefore change the
+    stamp in a way that is readable, not merely hashed.
+    """
+    from faer_dev.config.guards import poi_count_from_stamp
+
+    scenario = _minimal_scenario()
+    assert poi_count_from_stamp(scenario_stamp(scenario)) == 1
+
+    plural = deepcopy(scenario)
+    plural["facilities"].append(
+        {"id": "POI-2", "name": "POI 2", "role": "POI", "beds": 0,
+         "coordinates": [0.0, 5.0]}
+    )
+    plural["edges"].append(
+        {"from": "POI-2", "to": "R1-A", "travel_time_minutes": 20,
+         "transport": "GROUND"}
+    )
+    assert poi_count_from_stamp(scenario_stamp(plural)) == 2
+    assert scenario_stamp(plural) != scenario_stamp(scenario)
 
 
 # ---------------------------------------------------------------------------

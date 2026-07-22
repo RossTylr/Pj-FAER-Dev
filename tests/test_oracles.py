@@ -238,6 +238,10 @@ def test_o6_simultaneity_tie_break_determinism():
     determinism and CRN break silently. Re-assert this oracle after
     step 3 (multi-POI) lands — concurrent arrival generators are the
     hazard it guards (C5).
+
+    RE-ASSERTED at BUILD_S3 slice 2. The mandate is discharged by the
+    two-POI twin below: this single-generator form still holds, and the
+    concurrent-generator form it warned about is now covered directly.
     """
     scenario = _simultaneous_arrival_scenario()
     _, log_a = run_to_log(scenario, duration_min=480.0, max_patients=60)
@@ -258,3 +262,37 @@ def test_o6_simultaneity_tie_break_determinism():
     order_b = [e["casualty_id"] for e in log_b
                if e["event_type"] == "ARRIVAL" and e["sim_time"] == tied_time]
     assert order_a == order_b
+
+
+def test_o6_simultaneity_tie_break_determinism_two_poi():
+    """O6 twin — the hazard the original docstring actually named.
+
+    Two concurrent ArrivalProcess instances feed one SimPy environment, so
+    simultaneous arrivals now break ties across GENERATORS, not just within
+    one. EventStore.query() sorts by sim_time with a stable sort, meaning
+    emission order survives into the canonical log — if generator
+    interleaving were nondeterministic, the digest would move between runs
+    while every individual event stayed correct.
+
+    Discharges the "re-assert after step 3" mandate on the second fixture.
+    """
+    from tests.test_multi_poi import _two_poi_scenario
+
+    scenario = _two_poi_scenario()
+    _, log_a = run_to_log(scenario, duration_min=600.0, max_patients=40)
+    _, log_b = run_to_log(scenario, duration_min=600.0, max_patients=40)
+
+    arrivals = [e for e in log_a if e["event_type"] == "ARRIVAL"]
+    assert len({e["facility_id"] for e in arrivals}) == 2, (
+        "vacuous: only one POI spawned"
+    )
+    assert log_digest(log_a) == log_digest(log_b)
+
+    time_counts = Counter(e["sim_time"] for e in arrivals)
+    tied_time, k = time_counts.most_common(1)[0]
+    if k >= 2:
+        order_a = [e["casualty_id"] for e in log_a
+                   if e["event_type"] == "ARRIVAL" and e["sim_time"] == tied_time]
+        order_b = [e["casualty_id"] for e in log_b
+                   if e["event_type"] == "ARRIVAL" and e["sim_time"] == tied_time]
+        assert order_a == order_b

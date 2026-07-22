@@ -88,7 +88,9 @@ class ArrivalRecord:
 
     time: float
     is_mascal: bool
-    mascal_id: Optional[int] = None
+    # int when a run has one POI (every committed scenario); POI-prefixed
+    # string when plural, so cluster ids cannot collide across sources.
+    mascal_id: Optional[int | str] = None
 
 
 class ArrivalProcess:
@@ -108,6 +110,8 @@ class ArrivalProcess:
         on_arrival: Optional[Callable[[ArrivalRecord], None]] = None,
         on_mascal: Optional[Callable[[MASCALEvent], None]] = None,
         keyed_rng: Optional[KeyedRNGRoot] = None,
+        stream_scope: Optional[str] = None,
+        mascal_id_prefix: Optional[str] = None,
     ) -> None:
         self.env = env
         self.config = config
@@ -120,6 +124,13 @@ class ArrivalProcess:
         # S2 0c-3: system-axis keyed streams — arrivals draw from
         # (stream, occurrence) keys so no journey draw can shift them
         self.keyed_rng = keyed_rng
+        # BUILD_S3 slice 2. Multi-POI: two concurrent instances sharing one
+        # stream key alternately consume the same occurrence ladder, which
+        # destroys CRN pairing (measured at round B, Q11.4). A scope makes
+        # the entity string per-POI. None = the bare purpose literal, i.e.
+        # every single-POI digest committed to date, byte for byte.
+        self._stream_scope = stream_scope
+        self._mascal_id_prefix = mascal_id_prefix
         self.on_arrival = on_arrival
         self.on_mascal = on_mascal
 
@@ -133,6 +144,19 @@ class ArrivalProcess:
     def count(self) -> int:
         """Total arrivals generated so far."""
         return len(self.arrivals)
+
+    def _sys_draw(self, purpose: RNGPurpose) -> np.random.Generator:
+        """System-axis draw, POI-scoped when this instance is one of N.
+
+        Unscoped it is exactly ``keyed_rng.system_draw`` — the bare purpose
+        literal. Scoped it follows the existing ``transit:<MODE>`` precedent
+        (transport.py) with a second axis: ``arrivals:<poi>``.
+        """
+        if self._stream_scope is None:
+            return self.keyed_rng.system_draw(purpose)
+        return self.keyed_rng.draw(
+            f"{purpose.value}:{self._stream_scope}", purpose
+        )
 
     def start(self, max_arrivals: Optional[int] = None) -> None:
         """Start arrival processes.
@@ -154,7 +178,7 @@ class ArrivalProcess:
 
         while self._can_emit():
             if self.keyed_rng is not None:
-                inter_arrival = self.keyed_rng.system_draw(
+                inter_arrival = self._sys_draw(
                     RNGPurpose.ARRIVALS
                 ).exponential(1.0 / self.config.base_rate_per_minute)
             else:
@@ -176,7 +200,7 @@ class ArrivalProcess:
 
         while self._can_emit():
             if self.keyed_rng is not None:
-                inter_mascal = self.keyed_rng.system_draw(
+                inter_mascal = self._sys_draw(
                     RNGPurpose.MASCAL_GAP
                 ).exponential(1.0 / self.config.mascal_rate_per_minute)
             else:
@@ -200,7 +224,7 @@ class ArrivalProcess:
         """Generate a single MASCAL event."""
         if self.keyed_rng is not None:
             size = int(
-                self.keyed_rng.system_draw(RNGPurpose.MASCAL_SIZE).normal(
+                self._sys_draw(RNGPurpose.MASCAL_SIZE).normal(
                     self.config.mascal_size_mean, self.config.mascal_size_std
                 )
             )
@@ -223,14 +247,19 @@ class ArrivalProcess:
 
     def _mascal_cluster_process(self, mascal: MASCALEvent) -> Generator:
         """Generate casualties for a MASCAL cluster."""
-        mascal_id = self._mascal_counter
+        # The counter is per-instance, so N POIs would each restart at 1 and
+        # collide. Prefixed only when plural — an unprefixed run keeps the
+        # bare int every committed scenario already carries.
+        mascal_id: int | str = self._mascal_counter
+        if self._mascal_id_prefix is not None:
+            mascal_id = f"{self._mascal_id_prefix}-{self._mascal_counter}"
 
         if self.keyed_rng is not None:
             # One keyed draw-event per cluster: the offsets array is a
             # single logical draw (occurrence = MASCAL event n)
-            offsets = self.keyed_rng.system_draw(
-                RNGPurpose.MASCAL_OFFSETS
-            ).uniform(0, mascal.duration, size=mascal.size)
+            offsets = self._sys_draw(RNGPurpose.MASCAL_OFFSETS).uniform(
+                0, mascal.duration, size=mascal.size
+            )
         else:
             offsets = self.rng.uniform(0, mascal.duration, size=mascal.size)
         offsets.sort()
