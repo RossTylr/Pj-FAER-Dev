@@ -254,8 +254,15 @@ class ProcessMiner:
 
             # Check if patient reached R2+ within 60 minutes
             arrival_time = journey[0].sim_time
+            # BUILD_S3 slice 3: TREATMENT_START, not FACILITY_ARRIVAL. The
+            # substring scan on arrival counted a casualty as compliant for
+            # merely passing through an R2+ facility with zero care — the
+            # same false positive the engine stamp carried, and the one M2
+            # waypoints would have turned from incidental into structural.
             for e in journey:
                 fid = e.facility_id or ""
+                if e.event_type != "TREATMENT_START":
+                    continue
                 if "R2" in fid or "R3" in fid or "R4" in fid:
                     if (e.sim_time - arrival_time) <= 60.0:
                         by_triage[triage]["within_60"] += 1

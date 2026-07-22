@@ -298,6 +298,9 @@ def build_engine_from_dict(
             has_surgery=_parse_bool(fac_config.get("has_surgery", False)),
             has_blood=_parse_bool(fac_config.get("has_blood", False)),
             has_imaging=_parse_bool(fac_config.get("has_imaging", False)),
+            waypoint_allowed=_parse_bool(
+                fac_config.get("waypoint_allowed", False)
+            ),
         )
         engine.add_facility(facility)
 

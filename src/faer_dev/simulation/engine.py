@@ -30,6 +30,7 @@ from faer_dev.decisions.mode import SimulationToggles
 from faer_dev.routing import (
     triage_decisions as _extracted_triage_decisions,
     get_next_destination as _extracted_get_next_destination,
+    clinical_destination as _clinical_destination,
 )
 from faer_dev.events.bus import EventBus
 from faer_dev.events.store import EventStore
@@ -746,6 +747,59 @@ class PolyhybridEngine:
         patient.requires_dcs = decisions["requires_dcs"]
         return decisions
 
+    def _is_waypoint_hop(
+        self, patient: Casualty, current_facility: Facility,
+        decisions: Dict[str, Any], next_id: Optional[str],
+    ) -> bool:
+        """Is the next hop a WAYPOINT rather than the clinical destination?
+
+        M2, per the signed note's D-A ruling: routing yields a clinical
+        DESTINATION, and graph-mode intermediate path nodes are transit
+        only. Three conditions, all required:
+
+        1. graph routing is on — only then does a plan have intermediates;
+        2. the next hop is not the destination the plan is aimed at;
+        3. the scenario has declared that facility waypointable.
+
+        Condition 3 is the continuity floor as configuration. Default False
+        everywhere, so every scenario that does not opt in behaves exactly
+        as it did before this slice — which is why the golden is inert.
+        """
+        if next_id is None or not (
+            self.toggles.enable_extracted_routing
+            and self.toggles.enable_graph_routing
+        ):
+            return False
+        if not self.network.facilities[next_id].waypoint_allowed:
+            return False
+        destination = _clinical_destination(
+            patient, current_facility, self.network, decisions,
+            use_capability_routing=self.toggles.enable_capability_routing,
+        )
+        return destination is not None and next_id != destination
+
+    def _stamp_golden_hour(self, patient: Casualty, facility_id: str) -> None:
+        """Write the golden-hour stamp, if this treatment is the one that
+        earns it.
+
+        RULED at BUILD_S3 (F3): the stamp is ARRIVAL-TIMED but
+        TREATMENT-CONDITIONED — it records the R2 arrival time exactly as
+        before, but only when treatment actually starts at that R2. Before
+        this, arrival alone stamped it, so routing a casualty THROUGH an R2
+        with zero care scored full compliance (measured: golden_hour_met
+        True with no treatment at all). Called at treatment start, so a
+        casualty still mid-treatment at the run cutoff keeps its stamp.
+        """
+        pending = patient.metadata.pop("_pending_r2_arrival", None)
+        if pending is None or "r2_arrival_time" in patient.metadata:
+            return
+        if self.network.facilities[facility_id].role != Role.R2:
+            return
+        patient.metadata["r2_arrival_time"] = pending
+        gh_minutes = pending - patient.created_at
+        patient.metadata["golden_hour_minutes"] = gh_minutes
+        patient.metadata["golden_hour_met"] = gh_minutes <= 60.0
+
     def _next_destination(
         self, patient: Casualty, current_facility: Facility,
         decisions: Dict[str, Any],
@@ -797,6 +851,9 @@ class PolyhybridEngine:
             decisions = self._recompute_decisions(patient)
             next_id = self._next_destination(patient, current_facility, decisions)
             patient.intended_destination = next_id
+            arrived_as_waypoint = self._is_waypoint_hop(
+                patient, current_facility, decisions, next_id
+            )
 
             if next_id is None:
                 # Journey complete — assign disposition
@@ -1100,25 +1157,36 @@ class PolyhybridEngine:
             current_id = next_id
             patient.current_facility = current_id
             patient.facilities_visited.append(current_id)
-            self._log_event("FACILITY_ARRIVAL", patient, current_id)
+            # M2: the flag is passed ONLY when true, so an opt-out scenario
+            # emits exactly the payload it emitted before this slice.
+            self._log_event(
+                "FACILITY_ARRIVAL", patient, current_id,
+                {"waypoint": True} if arrived_as_waypoint else None,
+            )
             if self._facility_writer is not None:  # S1.1: waiting changed
                 self._facility_writer.update(current_id)
             self._update_facility_congestion(current_id)
 
-            # Golden Hour tracking: record first R2 arrival
+            # Golden Hour: remember WHEN this R2 was reached; the stamp is
+            # written only if treatment actually starts here (see
+            # _stamp_golden_hour). A later R2 overwrites the pending time,
+            # so a casualty waypointed through R2-A and treated at R2-B
+            # records R2-B's arrival — the ruled definition.
             arrived_facility = self.network.facilities[current_id]
             if (
                 arrived_facility.role == Role.R2
                 and "r2_arrival_time" not in patient.metadata
             ):
-                gh_minutes = self.env.now - patient.created_at
-                patient.metadata["r2_arrival_time"] = self.env.now
-                patient.metadata["golden_hour_minutes"] = gh_minutes
-                patient.metadata["golden_hour_met"] = gh_minutes <= 60.0
+                patient.metadata["_pending_r2_arrival"] = self.env.now
 
-            # Department routing (Phase 3) or single-queue fallback
+            # Department routing (Phase 3) or single-queue fallback.
+            # A waypoint is transit, not reception: no treatment, matching
+            # the measured beds=0 signature (TRANSIT_END, FACILITY_ARRIVAL,
+            # TRANSIT_START; no TREATMENT_*).
             dept_graph = self.department_graphs.get(current_id)
-            if dept_graph and self.toggles.enable_department_routing:
+            if arrived_as_waypoint:
+                pass
+            elif dept_graph and self.toggles.enable_department_routing:
                 yield from self._treat_in_department(
                     patient, current_id, dept_graph, decisions
                 )
@@ -1206,6 +1274,7 @@ class PolyhybridEngine:
 
                 patient.state = PatientState.IN_TREATMENT
                 patient.treatment_started_at = self.env.now
+                self._stamp_golden_hour(patient, facility_id)
                 self._log_event(
                     "TREATMENT_START", patient, facility_id,
                     {"wait_time": wait_time, "department": dept_name},
@@ -1255,6 +1324,7 @@ class PolyhybridEngine:
 
             patient.state = PatientState.IN_TREATMENT
             patient.treatment_started_at = self.env.now
+            self._stamp_golden_hour(patient, facility_id)
             self._log_event(
                 "TREATMENT_START", patient, facility_id,
                 {"wait_time": wait_time, "department": dept_name},
@@ -1310,6 +1380,7 @@ class PolyhybridEngine:
 
             patient.state = PatientState.IN_TREATMENT
             patient.treatment_started_at = self.env.now
+            self._stamp_golden_hour(patient, facility_id)
             self._log_event(
                 "TREATMENT_START", patient, facility_id,
                 {"wait_time": wait_time},

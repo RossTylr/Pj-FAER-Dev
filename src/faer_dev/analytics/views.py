@@ -55,6 +55,12 @@ class FacilityLoadView:
             return
 
         if event.event_type == "FACILITY_ARRIVAL":
+            # A waypoint hop is transit, not occupancy. The view decrements
+            # only on DISPOSITION, so counting a pass-through would be a
+            # permanent +1 — turning the known intermediate-overcount defect
+            # (register, #42) from incidental into structural under M2.
+            if (getattr(event, "metadata", None) or {}).get("waypoint"):
+                return
             self._current_load[fac] += 1
             self._arrivals[fac] += 1
             self._peak_load[fac] = max(

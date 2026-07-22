@@ -171,6 +171,18 @@ class Facility(BaseModel):
     has_imaging: bool = Field(default=False)
     has_lab: bool = Field(default=False)
 
+    # BUILD_S3 slice 3 (M2). Doctrine D-A: arrival is not clinical
+    # reception, so a casualty may TRANSIT a node without being
+    # received. Default False = every arrival treats, i.e. exactly
+    # today's behaviour for every scenario that does not opt in.
+    # NOTE the axis: the signed note conditions passing on the
+    # AJMedP-2 §0101.3 continuity floor, which is PLATFORM-relative
+    # (the vehicle must sustain the care level already achieved).
+    # This flag is FACILITY-relative — a config proxy. The gap is
+    # the substance of the standing human veto and the
+    # platform-care-levels register row.
+    waypoint_allowed: bool = Field(default=False)
+
     # Status
     is_operational: bool = Field(default=True)
     current_occupancy: int = Field(default=0, ge=0)

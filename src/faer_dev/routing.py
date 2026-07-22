@@ -115,6 +115,30 @@ def _find_highest_reachable(
     return None
 
 
+def clinical_destination(
+    patient: Casualty,
+    current_facility: Facility,
+    network: TreatmentNetwork,
+    decisions: Dict[str, Any],
+    *,
+    use_capability_routing: bool = False,
+) -> Optional[str]:
+    """The facility the casualty is being routed TO, as opposed to the next
+    hop on the way there.
+
+    Graph mode plans to a target and then walks a Dijkstra path towards it;
+    every node on that path except the target is an intermediate. M2 needs
+    the distinction because doctrine (D-A) says routing yields a clinical
+    DESTINATION, and intermediates are transit, not reception.
+
+    Pure function: no SimPy, no RNG, no side effects.
+    """
+    return _find_highest_reachable(
+        current_facility, network, decisions, patient,
+        use_capability_routing=use_capability_routing,
+    )
+
+
 def get_next_destination(
     patient: Casualty,
     current_facility: Facility,
