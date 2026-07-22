@@ -79,3 +79,42 @@ checker rule" register row.
 ---
 
 *Session R closed. α requires gate word 1; nothing in `src/` or `tests/` has been touched.*
+
+---
+
+## SESSION α — RATIFIED at `22c1040` (gate word 2, 22 Jul 2026)
+
+Slices `ec42ae5` (hygiene) → `2e7ee25` (M3 + hold truth) → `22c1040` (multi-POI).
+185 passed, 1 deselected; O1 byte-identical throughout; zero regeneration.
+
+**Reds witnessed:** T-5-5b failed `assert 0 > 0` — the violation population fell to
+exactly zero — then inverted and renamed per its own standing instruction.
+
+**O4 structural argument (recorded, not predicted):** the PFC ceiling requires
+`pfc_hours >= 24 h`; O4's `_hold_timeout_override = 75.0` makes it unreachable, so no
+promotion can occur in that recipe and no divert can follow.
+
+**AC-1.1 evidence:** NORTH 1654/2338 = 0.7074, SOUTH 684/2338 = 0.2926 over 40
+replications, both inside ±0.05.
+
+### Rulings entered at the α gate
+
+| Ruling | Effect |
+|---|---|
+| **LOC 296/220 ACCEPTED** | Precedence clause. Crossed in-slice, surfaced at the gate, not gamed. |
+| **NEW STANDING RULE** | Every future Rule-3 declaration states BOTH a code-only estimate and a RAW envelope. The tripwire binds RAW and is checked at **slice boundaries**: a mid-slice crossing means complete the slice, then STOP at the boundary. Supersedes the "stop the moment it drifts" reading. |
+| **β re-declaration** | Calibrated on the measured 1.7–2.4× RAW/code ratio: **code-only estimate 70–110 intrinsic; RAW envelope 250.** Both reported per slice. |
+| **`max_patients` per-POI semantics** | RATIFIED. Caps are test plumbing; analysis scenarios are bound by duration, not by cap. |
+
+### β riders (deviations vs the committed file)
+
+1. **AC-1.1 at the AC's stated 100 replications**, executed once and recorded at the β
+   gate. The 40-rep run stands as evidence; the 100-rep run is the AC-conformant
+   record. *The 40-vs-100 miss was untabled at the α gate — noted here rather than
+   quietly corrected.*
+2. **Typed-emitter arm on the waypoint signature test** — `metadata.waypoint` must
+   survive BOTH emitter paths (β slice 3). Follows the α finding that the typed
+   emitter drops `state` while the legacy dict path keeps it.
+
+**α DoD deviations table** is carried in the three slice commit bodies; the single red
+item was the LOC envelope, ruled above.
