@@ -172,26 +172,177 @@ def test_requires_dcs_recomputed_on_promotion(hold_promotion_run):
     assert dest == "R2-S"
 
 
-def test_promotion_does_not_reroute_committed_hold(hold_promotion_run):
-    """T-5-5b CHARACTERISATION — T-5-5 split per gate ruling 2026-07-05.
+def test_promotion_reroutes_at_the_hold_boundary(hold_promotion_run):
+    """T-5-5b — INVERTED at BUILD_S3 slice 1, per its own instruction.
 
-    The hold destination is chosen BEFORE the hold gate
-    (engine.py:680-688); the hold loop re-checks that destination's
-    fullness only and never re-evaluates it (engine.py:720-848). A
-    casualty promoted mid-hold therefore still transits to and is treated
-    at the pre-promotion, non-surgical destination despite the truthful
-    ``requires_dcs`` flag.
+    Was a characterisation of the committed-hold staleness: the destination
+    was chosen once, before the hold gate, and the hold loop only re-checked
+    that destination's fullness. A casualty promoted mid-hold still transited
+    to the pre-promotion, non-surgical destination despite a truthful
+    ``requires_dcs``.
 
-    Step-3 entry criterion — re-plan-on-Clock-1 family, alongside T-5-7;
-    EX-6 possible vehicle. This test INVERTS at Step 3 — when
-    re-plan-on-promotion lands, flip the assertion to violations == 0;
-    do not delete.
+    M3 lands the doctrine ruling (ROUTING_SEMANTICS_NOTE D-B/D-C: divert on
+    state change, bounded to leg boundaries and hold-retry). The retry
+    boundary now recomputes both flags and re-derives the destination, so a
+    promoted casualty diverts to the surgical alternative. Committed legs
+    still complete — there is no mid-leg divert.
+
+    Red witnessed before inversion at slice 1: ``assert 0 > 0``, i.e.
+    violations fell from a reproducing population to exactly zero.
     """
     engine, log, promoted_ids = hold_promotion_run
     violations = _surgical_treatments_at_non_surgical(engine, log)
-    assert len(violations) > 0, (
-        "committed-hold staleness no longer reproduces — has Step 3's "
-        "re-plan landed? If so, invert this assertion to == 0"
+    assert len(violations) == 0, (
+        "a T1_SURGICAL casualty was treated at a non-surgical facility after "
+        f"the M3 hold-boundary re-decision landed: {violations}"
+    )
+
+
+def test_promoted_casualty_diverts_to_surgical_alternative(hold_promotion_run):
+    """M3 divert, positively asserted (BUILD_S3 slice 1).
+
+    T-5-5b proves the violation is gone; this proves the casualty went
+    somewhere *better* rather than simply stopping. Every promoted casualty
+    that reached a downstream R2 must have reached the surgical one — the
+    destination the T-5-5a probe call already proved routing would select.
+    """
+    engine, log, promoted_ids = hold_promotion_run
+
+    arrivals_after_promotion: dict[str, set[str]] = {}
+    promoted_at: dict[str, float] = {}
+    for event in log:
+        cid = event["casualty_id"]
+        if cid not in promoted_ids:
+            continue
+        if (event["event_type"] == "TRIAGE"
+                and event.get("new_triage") == "T1_SURGICAL"):
+            promoted_at.setdefault(cid, event["sim_time"])
+        elif event["event_type"] == "FACILITY_ARRIVAL":
+            if cid in promoted_at and event["sim_time"] >= promoted_at[cid]:
+                arrivals_after_promotion.setdefault(cid, set()).add(
+                    event["facility_id"]
+                )
+
+    reached_r2 = {
+        cid: facs for cid, facs in arrivals_after_promotion.items()
+        if facs & {"R2-NS", "R2-S"}
+    }
+    assert reached_r2, "vacuous: no promoted casualty reached a downstream R2"
+    for cid, facs in reached_r2.items():
+        assert "R2-NS" not in facs, (
+            f"{cid} was promoted to T1_SURGICAL and still arrived at the "
+            f"non-surgical R2-NS (arrived at {sorted(facs)})"
+        )
+
+
+def test_held_casualty_state_is_holding_not_in_treatment(hold_promotion_run):
+    """Hold-state truth (BUILD_S3 slice 1).
+
+    A held casualty holds no bed (released before the hold begins), no
+    vehicle, and no slot at the destination. Its state was a stale
+    ``IN_TREATMENT`` inherited from ``_treat_in_queue``; it is now the
+    honest ``HOLDING``. PFC and timeout still override with their own
+    states, so this asserts the state carried by the HOLD_START event —
+    the moment the hold is entered.
+
+    Asserted against ``engine.events`` (the legacy dict path), not the
+    canonical log: the typed emitter drops ``state`` from the payload, so
+    the canonical log cannot witness this. That asymmetry is itself worth
+    knowing — the canonical trace carries triage but not state.
+    """
+    engine, log, promoted_ids = hold_promotion_run
+
+    hold_starts = [e for e in engine.events if e["type"] == "HOLD_START"]
+    assert hold_starts, "vacuous: no HOLD_START in the fixture"
+    states = {e.get("state") for e in hold_starts}
+    assert states == {"HOLDING"}, (
+        f"HOLD_START carried states {states}, expected only HOLDING"
+    )
+
+
+def test_intended_destination_is_engine_internal(hold_promotion_run):
+    """G8 RULE: ``intended_destination`` appears in no event payload.
+
+    The field is the live routing decision, honest at every boundary where
+    ``destination_facility`` is stale. It is deliberately NOT published: the
+    roster side is policed by the roster_row whitelist plus I-7 clause 3,
+    and this is the event side of the same rule.
+    """
+    engine, log, promoted_ids = hold_promotion_run
+
+    # Non-vacuity on an IN-FLIGHT casualty: at journey end the last
+    # loop-top recompute writes None (no next destination), so completed
+    # casualties correctly carry None. A short separate run catches the
+    # field while it is live.
+    probe = build_engine_from_dict(
+        _hold_promotion_scenario(), toggles=_toggles(), seed=42,
+    )
+    probe.run(duration=0.0, max_patients=10)
+    probe.step(120.0)
+    assert any(
+        p.intended_destination is not None for p in probe.patients.values()
+    ), "vacuous: no in-flight casualty carries an intended_destination"
+
+    for event in log:
+        assert "intended_destination" not in event, (
+            f"{event['event_type']} leaked intended_destination into the "
+            "canonical log"
+        )
+        metadata = event.get("metadata") or {}
+        assert "intended_destination" not in metadata, (
+            f"{event['event_type']} leaked intended_destination into metadata"
+        )
+    for event in engine.events:  # legacy dict path carries its own payload
+        assert "intended_destination" not in (event.get("details") or {}), (
+            f"{event['type']} leaked intended_destination into legacy details"
+        )
+
+
+@pytest.mark.parametrize("triage,expect_bypass,expect_dcs", [
+    (TriageCategory.T1_SURGICAL, True, True),
+    (TriageCategory.T1_MEDICAL, True, False),
+    (TriageCategory.T2, False, False),
+    (TriageCategory.T3, False, False),
+    (TriageCategory.T4, False, False),
+])
+def test_triage_decisions_recompute_is_symmetric(
+    triage, expect_bypass, expect_dcs,
+):
+    """M3 mechanism-level symmetry, INCLUDING the demotion branch.
+
+    The engine promotes only (CP4 gate #7), so withdrawal-of-bypass has no
+    reachable path today — but the ratified D-B ruling names triage change
+    in EITHER direction as a trigger, and the recompute must be honest in
+    both. Asserted where it is reachable: on the pure function.
+
+    Also pins the property the whole zero-regen posture rests on — the
+    recompute is idempotent, so re-deciding at a boundary is a no-op unless
+    the casualty changed.
+    """
+    from faer_dev.core.schemas import Casualty
+
+    patient = Casualty(
+        id="CAS-TEST", triage=triage, initial_triage=triage,
+        created_at=0.0, state_changed_at=0.0,
+    )
+
+    first = triage_decisions(patient)
+    assert first["bypass_role1"] is expect_bypass
+    assert first["requires_dcs"] is expect_dcs
+
+    # Idempotence: recomputing without a state change is a no-op.
+    assert triage_decisions(patient) == first
+
+    # Promotion confers, demotion withdraws — the same pure function.
+    patient.triage = TriageCategory.T1_SURGICAL
+    promoted = triage_decisions(patient)
+    assert promoted["bypass_role1"] is True
+    assert promoted["requires_dcs"] is True
+
+    patient.triage = triage
+    assert triage_decisions(patient) == first, (
+        "recompute is not symmetric: returning to the original triage did "
+        "not restore the original decisions"
     )
 
 

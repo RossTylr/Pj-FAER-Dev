@@ -725,6 +725,39 @@ class PolyhybridEngine:
         self.completed_patients.append(patient)
         self.patients.pop(patient.id, None)
 
+    def _recompute_decisions(self, patient: Casualty) -> Dict[str, Any]:
+        """The per-journey clinical decisions, recomputed from current state.
+
+        M3 (BUILD_S3 slice 1). ``routing.triage_decisions`` is pure over
+        ``patient.triage`` — no RNG, no side effects — so recomputing is
+        IDEMPOTENT: the result changes only when the casualty itself changed.
+        That is what makes a boundary recompute golden-safe.
+
+        It also heals a real split: the PFC-ceiling promotion site updates the
+        ``requires_dcs`` FIELD but neither ``bypass_role1`` nor the loop-local
+        decisions DICT, so field and dict could disagree mid-journey.
+        """
+        decisions = _extracted_triage_decisions(patient)
+        patient.bypass_role1 = decisions["bypass_role1"]
+        patient.requires_dcs = decisions["requires_dcs"]
+        return decisions
+
+    def _next_destination(
+        self, patient: Casualty, current_facility: Facility,
+        decisions: Dict[str, Any],
+    ) -> Optional[str]:
+        """The toggle-gated routing call, in one place so M3 re-decides
+        through exactly the same path the leg boundary uses."""
+        if self.toggles.enable_extracted_routing:
+            return _extracted_get_next_destination(
+                patient, current_facility, self.network, decisions,
+                use_graph_routing=self.toggles.enable_graph_routing,
+                use_capability_routing=self.toggles.enable_capability_routing,
+            )
+        return _get_next_destination(
+            patient, current_facility, self.network, decisions
+        )
+
     def _patient_journey(
         self, patient: Casualty, start_facility_id: str
     ):  # type: ignore[return]  # SimPy generator
@@ -733,9 +766,7 @@ class PolyhybridEngine:
         self.patients[patient.id] = patient
 
         # Triage decisions (K-3 closed: always uses extracted routing module)
-        decisions = _extracted_triage_decisions(patient)
-        patient.bypass_role1 = decisions["bypass_role1"]
-        patient.requires_dcs = decisions["requires_dcs"]
+        decisions = self._recompute_decisions(patient)
 
         mechanism = (
             patient.mechanism.name
@@ -757,17 +788,11 @@ class PolyhybridEngine:
         while True:
             current_facility = self.network.facilities[current_id]
 
-            # Determine next destination (toggle-gated extraction)
-            if self.toggles.enable_extracted_routing:
-                next_id = _extracted_get_next_destination(
-                    patient, current_facility, self.network, decisions,
-                    use_graph_routing=self.toggles.enable_graph_routing,
-                    use_capability_routing=self.toggles.enable_capability_routing,
-                )
-            else:
-                next_id = _get_next_destination(
-                    patient, current_facility, self.network, decisions
-                )
+            # M3: re-decide at every leg boundary. Idempotent unless the
+            # casualty changed (promotion/demotion) — see _recompute_decisions.
+            decisions = self._recompute_decisions(patient)
+            next_id = self._next_destination(patient, current_facility, decisions)
+            patient.intended_destination = next_id
 
             if next_id is None:
                 # Journey complete — assign disposition
@@ -817,6 +842,12 @@ class PolyhybridEngine:
 
                     held_so_far = self.env.now - hold_start
                     if held_so_far == 0:
+                        # Honest transient state: the casualty has been
+                        # treated here and holds nothing — no bed (released
+                        # before the hold begins), no vehicle, no slot at the
+                        # destination. IN_TREATMENT was stale. PFC and
+                        # timeout still override with their own states.
+                        patient.state = PatientState.HOLDING
                         self._log_event("HOLD_START", patient, current_id, {
                             "downstream_facility": next_id,
                             "constrained_resource": "beds",
@@ -911,6 +942,27 @@ class PolyhybridEngine:
                     self._log_event("HOLD_RETRY", patient, current_id, {
                         "hold_duration_min": self.env.now - hold_start,
                     })
+
+                    # M3: the retry boundary is a free re-decision point —
+                    # a held casualty holds nothing, so diverting relinquishes
+                    # nothing. Idempotent unless the casualty changed.
+                    decisions = self._recompute_decisions(patient)
+                    replanned = self._next_destination(
+                        patient, current_facility, decisions
+                    )
+                    if replanned is not None and replanned != next_id:
+                        # A None recompute means "no destination at all";
+                        # completing the committed leg is the safer fallback,
+                        # so only a positive re-decision diverts.
+                        next_id = replanned
+                        patient.intended_destination = next_id
+                        if next_id not in self.queues:
+                            break  # new destination is not queue-gated
+                        downstream_q = self.queues[next_id]
+                        downstream_dept_graph = (
+                            self.department_graphs.get(next_id)
+                            if self.toggles.enable_department_routing else None
+                        )
 
                 # If timed out, dispose and break
                 if patient.state == PatientState.AWAITING_EVACUATION:

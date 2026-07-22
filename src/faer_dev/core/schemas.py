@@ -97,6 +97,13 @@ class Casualty(BaseModel):
     state: PatientState = Field(default=PatientState.AT_POI)
     current_facility: Optional[str] = Field(default=None, description="Current facility ID")
     destination_facility: Optional[str] = Field(default=None, description="Next facility ID")
+    # BUILD_S3 slice 1. ENGINE-INTERNAL: appears in no event payload and no
+    # roster row. destination_facility is written after the hold block and so
+    # is stale during a hold; this is the live decision, honest at every
+    # boundary. Roster purity is policed by the roster_row whitelist + I-7c3.
+    intended_destination: Optional[str] = Field(
+        default=None, description="Live routing decision (engine-internal)"
+    )
 
     # Timeline
     created_at: float = Field(..., description="Simulation time of injury")
