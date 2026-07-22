@@ -221,6 +221,8 @@ class PolyhybridEngine:
         self.transport_pool = TransportPool(
             env=self.env, config=self._transport_config, rng=self._rng,
             keyed_rng=self._keyed_rng,
+            origin_scoped=self.toggles.enable_origin_transport,
+            batched_turnaround=self.toggles.enable_batched_turnaround,
         )
 
         # Arrival processes, one per POI (created at run time when the POI
@@ -1125,6 +1127,7 @@ class PolyhybridEngine:
                 # Batched: coordinator manages vehicle sharing
                 ready_event = batcher.request_transport(
                     str(patient.id), patient.priority_value,
+                    origin=current_id,
                 )
                 yield ready_event
                 self.transport_pool.record_pickup(mode, request_time)

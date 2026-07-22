@@ -80,11 +80,26 @@ def test_poi_only_raises():
 
 
 def test_gm3_analysis_guard():
-    """GM-3: analysis runs must be capability-ON (+extracted)."""
+    """GM-3: analysis runs must be capability-ON (+extracted), and from
+    BUILD_S3 slice 4 also origin-scoped on transit.
+
+    The third clause is the same pattern applied to the transit stream: an
+    unscoped per-mode mission census couples missions across origins, so a
+    doctrine comparison's transit draws are not paired. Both default-flips
+    ride the GM-4 legacy bundle.
+    """
     with pytest.raises(ConfigurationError, match="GM-3"):
         EnsembleBuilder("coin", n_replications=1, analysis=True)
+
+    # Capability-ON but transit still unscoped — now rejected.
+    with pytest.raises(ConfigurationError, match="enable_origin_transport"):
+        require_analysis_toggles(SimulationToggles(
+            enable_extracted_routing=True, enable_capability_routing=True,
+        ))
+
     require_analysis_toggles(SimulationToggles(
         enable_extracted_routing=True, enable_capability_routing=True,
+        enable_origin_transport=True,
     ))  # compliant toggles pass
 
 

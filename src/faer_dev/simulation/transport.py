@@ -200,7 +200,12 @@ class TransportPool:
         config: TransportConfig,
         rng: Optional[np.random.Generator] = None,
         keyed_rng: Optional["KeyedRNGRoot"] = None,
+        origin_scoped: bool = False,
+        batched_turnaround: bool = False,
     ) -> None:
+        # BUILD_S3 slice 4, both default False = legacy byte-for-byte.
+        self._origin_scoped = origin_scoped
+        self._batched_turnaround = batched_turnaround
         self.env = env
         self.config = config
         if rng is None:
@@ -249,7 +254,15 @@ class TransportPool:
                         resource=self._resources[mode],
                         capacity=cap,
                         batch_wait=config.batch_wait_minutes,
-                        trip_time_fn=lambda m=mode: self.sample_trip_time(m),
+                        trip_time_fn=(
+                            lambda origin="", m=mode:
+                            self.sample_trip_time(m, origin=origin)
+                        ),
+                        origin_scoped=origin_scoped,
+                        turnaround=(
+                            config.get_turnaround(mode)
+                            if batched_turnaround else 0.0
+                        ),
                     )
                 else:
                     self._batchers[mode] = None
@@ -296,12 +309,24 @@ class TransportPool:
         metrics.completions += 1
         metrics.total_trip_time += trip_time
 
-    def sample_trip_time(self, mode: TransportMode) -> float:
-        """Sample round-trip time for transport mode (minimum 10 min)."""
+    def sample_trip_time(
+        self, mode: TransportMode, origin: str = "",
+    ) -> float:
+        """Sample round-trip time for transport mode (minimum 10 min).
+
+        The TRANSIT stream is a per-mode vehicle-mission census. With
+        origin scoping it gains a second axis, `transit:<MODE>:<origin>`,
+        so missions out of one origin no longer shift the occurrence index
+        of every subsequent mission out of every other origin. Unscoped the
+        entity string is unchanged, hence the byte-identical legacy path.
+        """
         mean, std = self.config.get_round_trip_params(mode)
         if self.keyed_rng is not None:
+            entity = f"transit:{mode.name}"
+            if self._origin_scoped and origin:
+                entity = f"{entity}:{origin}"
             trip_time = self.keyed_rng.draw(
-                f"transit:{mode.name}", RNGPurpose.TRANSIT
+                entity, RNGPurpose.TRANSIT
             ).normal(mean, std)
         else:
             trip_time = self.rng.normal(mean, std)
@@ -364,6 +389,9 @@ class BatchSlot:
     priority: int
     ready_event: simpy.Event
     trip_time: float = 0.0
+    # BUILD_S3 slice 4: which facility this leg departs from.
+    # Empty when origin scoping is off — the legacy single-pool shape.
+    origin: str = ""
 
 
 class BatchCoordinator:
@@ -381,17 +409,28 @@ class BatchCoordinator:
         capacity: int,
         batch_wait: float,
         trip_time_fn: callable,
+        origin_scoped: bool = False,
+        turnaround: float = 0.0,
     ):
         self.env = env
         self.resource = resource
         self.capacity = capacity
         self.batch_wait = batch_wait
         self.trip_time_fn = trip_time_fn
+        # BUILD_S3 slice 4. origin_scoped: a batch may not mix origins, so
+        # one vehicle is never shared across two departure points in a
+        # single trip. turnaround > 0: the vehicle stays claimed for
+        # refuel/reset after the round trip, unifying the batched path with
+        # the unbatched _vehicle_return model. Both default off.
+        self.origin_scoped = origin_scoped
+        self.turnaround = turnaround
 
         self._pending: list[BatchSlot] = []
         self._batch_timer_active = False
 
-    def request_transport(self, patient_id: str, priority: int) -> simpy.Event:
+    def request_transport(
+        self, patient_id: str, priority: int, origin: str = "",
+    ) -> simpy.Event:
         """Request transport for a patient. Returns event that fires on departure.
 
         The event's value is the trip_time shared by all batch members.
@@ -401,6 +440,7 @@ class BatchCoordinator:
             patient_id=patient_id,
             priority=priority,
             ready_event=ready_event,
+            origin=origin,
         )
         self._pending.append(slot)
 
@@ -435,8 +475,19 @@ class BatchCoordinator:
 
         # Take up to capacity patients, sorted by priority (best first)
         self._pending.sort(key=lambda s: s.priority)
-        batch = self._pending[:self.capacity]
-        self._pending = self._pending[self.capacity:]
+        if self.origin_scoped:
+            # One vehicle serves one departure point per trip. The best
+            # priority claims the vehicle and the batch fills from its own
+            # origin only; everyone else waits for the next dispatch.
+            origin = self._pending[0].origin
+            batch = [s for s in self._pending if s.origin == origin][
+                :self.capacity
+            ]
+            remaining = [s for s in self._pending if s not in batch]
+            self._pending = remaining
+        else:
+            batch = self._pending[:self.capacity]
+            self._pending = self._pending[self.capacity:]
 
         # Claim one vehicle using best priority in batch
         best_priority = batch[0].priority
@@ -445,7 +496,7 @@ class BatchCoordinator:
             yield req
 
             # Vehicle acquired — sample trip time once for entire batch
-            trip_time = self.trip_time_fn()
+            trip_time = self.trip_time_fn(batch[0].origin)
 
             # Notify all patients in batch
             for slot in batch:
@@ -453,8 +504,9 @@ class BatchCoordinator:
                 if not slot.ready_event.triggered:
                     slot.ready_event.succeed(value=trip_time)
 
-            # Vehicle occupied for round-trip
-            yield self.env.timeout(trip_time)
+            # Vehicle occupied for round-trip, plus turnaround when the
+            # batched path is running the full downtime model.
+            yield self.env.timeout(trip_time + self.turnaround)
 
         # If more patients pending, start next batch
         if self._pending and not self._batch_timer_active:

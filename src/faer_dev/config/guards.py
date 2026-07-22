@@ -137,3 +137,15 @@ def require_analysis_toggles(toggles: Any) -> None:
             "enable_capability_routing (GM-3 capability-ON interim rule; "
             "retires with the legacy walk at GM-4)."
         )
+    # BUILD_S3 slice 4, same GM-3 pattern: an analysis run must not use the
+    # unscoped TRANSIT stream. Without origin scoping, every extra mission
+    # out of ANY origin shifts the occurrence index of every subsequent
+    # mission for that mode, so a doctrine comparison's transit draws stop
+    # being paired. Default-flip joins the GM-4 legacy bundle.
+    if not toggles.enable_origin_transport:
+        raise ConfigurationError(
+            "Analysis runs require enable_origin_transport: the unscoped "
+            "per-mode TRANSIT stream couples missions across origins, so "
+            "transit-dependent estimands are not CRN-paired (GM-3 pattern; "
+            "default-flip rides GM-4)."
+        )

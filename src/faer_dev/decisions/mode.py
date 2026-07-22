@@ -69,6 +69,20 @@ class SimulationToggles:
     # stream; "shared" is the legacy single-stream path, retained behind the
     # toggle for archaeology until a later retirement milestone
     rng_mode: str = "keyed"
+    # BUILD_S3 slice 4. Transport physics, both default OFF so the legacy
+    # byte stream is untouched (asserted). They are SEPARATE because only
+    # the first is the transit-keying provisional's subject; bundling them
+    # would make the re-measure uninterpretable.
+    #
+    # enable_origin_transport is ONE coherent change, not two: a batch
+    # spanning origins has no single origin to key `transit:<MODE>:<origin>`
+    # on, so the batcher's origin dimension is a PRECONDITION for the scoped
+    # stream rather than a co-change.
+    enable_origin_transport: bool = False
+    # The batched path applies no turnaround at all today, while the
+    # unbatched path runs the full model — two different vehicle-downtime
+    # models in one engine (transport.py vs engine.py::_vehicle_return).
+    enable_batched_turnaround: bool = False
     # S2 slice 0c-2: record the eager identity roster at casualty creation
     # (POLYBIUS input-interface artefact; parquet writer is an optional extra)
     enable_roster: bool = False
